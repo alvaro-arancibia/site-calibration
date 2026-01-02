@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sitecal"
+version = "0.1.0"
+description = "TBC-compatible site calibration and coordinate transforms"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "numpy",
+  "pyproj",
+  "pydantic",
+  "beautifulsoup4",
+  "lxml",
+  "typer",
+  "rich",
+]
+
+[project.scripts]
+sitecal = "sitecal.cli:app"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["sitecal*"]
