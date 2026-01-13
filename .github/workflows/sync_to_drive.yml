@@ -1,0 +1,50 @@
+name: Sync to Google Drive
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 1. Comprimimos la carpeta src en un archivo .zip para evitar errores de carpeta
+      - name: Archive src folder
+        run: |
+          if [ -d src ]; then
+            zip -r src.zip src
+            echo "✅ Carpeta comprimida correctamente."
+          else
+            echo "❌ Error: No se encuentra la carpeta src/"
+            exit 1
+          fi
+
+      # 2. Preparamos las credenciales (Script robusto anti-errores de formato)
+      - name: Prepare credentials
+        id: prepare
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: |
+          set -e
+          # Detecta si es Base64 o JSON plano y lo normaliza
+          if echo "$GCP_SA_KEY" | base64 --decode > decoded.json 2>/dev/null; then
+             echo "Credential is Base64. Using decoded version."
+             mv decoded.json credentials.json
+          else
+             echo "Credential is Raw JSON. Using as is."
+             echo "$GCP_SA_KEY" > credentials.json
+          fi
+          # Codifica en una sola línea para la acción
+          CREDENTIALS_B64=$(base64 -w 0 credentials.json)
+          echo "credentials_b64=$CREDENTIALS_B64" >> $GITHUB_OUTPUT
+
+      # 3. Subimos el archivo ZIP usando la rama main
+      - name: Sync to Drive
+        uses: mathisve/gdrive-upload-action@main
+        with:
+          credentials: ${{ steps.prepare.outputs.credentials_b64 }}
+          filename: src.zip
+          folderId: 1GRhqBkbs3mk_WVRvDN40boI1AYHlt0RF
+          overwrite: "true"
