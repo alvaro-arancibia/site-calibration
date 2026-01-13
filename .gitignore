@@ -205,3 +205,11 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Files from old implementation, now empty.
+src/sitecal/calibration.py
+src/sitecal/tbc_html.py
+src/sitecal/tbc_default_tm.py
+src/sitecal/commands/
+src/sitecal/csv_handler.py
+src/sitecal/csv_repository.py

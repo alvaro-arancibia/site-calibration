@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, Union
 
 import numpy as np
+import pandas as pd
 
 from sitecal.tbc_default_tm import TBCDefaultTM
 
@@ -24,17 +25,14 @@ class Similarity2D:
     tN: float
     rmse_m: float
 
-    def apply(self, x: float, y: float) -> tuple[float, float]:
+    def apply(self, x: Union[float, np.ndarray], y: Union[float, np.ndarray]) -> tuple:
+        """Vectorized application of the similarity transformation."""
         E = self.a * x - self.b * y + self.tE
         N = self.b * x + self.a * y + self.tN
         return E, N
 
-    def inverse_apply(self, E: float, N: float) -> tuple[float, float]:
-        """
-        Local (E,N) -> shifted TM (x,y), inverse of:
-        E = tE + a*x - b*y
-        N = tN + b*x + a*y
-        """
+    def inverse_apply(self, E: Union[float, np.ndarray], N: Union[float, np.ndarray]) -> tuple:
+        """Vectorized inverse application: Local (E,N) -> TM (x,y)."""
         dx = E - self.tE
         dy = N - self.tN
         denom = (self.a * self.a) + (self.b * self.b)
@@ -102,3 +100,14 @@ def solve_similarity_2d(points: Iterable, tm: TBCDefaultTM) -> Similarity2D:
     rmse = np.sqrt(np.mean(residuals**2))
 
     return Similarity2D(a=float(a), b=float(b), tE=float(tE), tN=float(tN), rmse_m=float(rmse))
+
+
+def apply_local_to_global_vectorized(df: pd.DataFrame, sim: Similarity2D, tm: TBCDefaultTM) -> pd.DataFrame:
+    """
+    Optimized transformation using NumPy arrays. No for loops.
+    """
+    # 1. Local EN -> TM EN (Inverse Similarity)
+    tm_e, tm_n = sim.inverse_apply(df['e'].values, df['n'].values)
+    # 2. TM EN -> WGS84 (Inverse Projection)
+    df['lon'], df['lat'] = tm.to_geo.transform(tm_e, tm_n)
+    return df
