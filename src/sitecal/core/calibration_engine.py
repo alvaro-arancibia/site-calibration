@@ -83,17 +83,30 @@ class Similarity2D(Calibration):
         tE = self.params["tE"]
         tN = self.params["tN"]
 
-        x = df["Easting_global"].values
-        y = df["Northing_global"].values
+        # Handle column names dynamically (merged vs standalone)
+        if "Easting_global" in df.columns:
+            x = df["Easting_global"].values
+            y = df["Northing_global"].values
+        else:
+            x = df["Easting"].values
+            y = df["Northing"].values
 
         E_trans = a * x - b * y + tE
         N_trans = b * x + a * y + tN
+        
+        # Handle height pass-through (try _global suffix first, then plain)
+        if "h_global" in df.columns:
+            h_vals = df["h_global"].values
+        elif "h" in df.columns:
+            h_vals = df["h"].values
+        else:
+            h_vals = np.zeros(len(df))
 
         return pd.DataFrame({
             "Point": df["Point"],
             "Easting": E_trans,
             "Northing": N_trans,
-            "h": df["h_global"].values if "h_global" in df.columns else np.zeros(len(df))
+            "h": h_vals
         })
 
 
@@ -137,10 +150,14 @@ class Helmert7(Calibration):
 
         # 6. Calculate scale factor
         var_src = np.var(src_centered, axis=0).sum()
-        s = np.trace(np.diag(_) @ R) / var_src
+        # s = Trace(D @ R) / var_src, but here simpler formulation via centered coords
+        # Re-verify scale calculation: s = sum(src * (R.T @ dst)) / sum(src^2) is one way
+        # Using the formulation: s = Trace(dst.T @ R @ src) / Trace(src.T @ src) ? 
+        # Actually standard procrustes scale:
+        s = np.sum(src_centered * (dst_centered @ R)) / np.sum(src_centered**2)
         
         # 7. Calculate translation
-        t = dst_centroid - s * R @ src_centroid
+        t = dst_centroid - s * src_centroid @ R.T
         
         self.R = R
         self.t = t
@@ -167,10 +184,16 @@ class Helmert7(Calibration):
         if self.R is None or self.t is None or self.s is None:
             raise RuntimeError("The calibration model has not been trained.")
 
-        src_coords = df[["X_global", "Y_global", "Z_global"]].values
+        # Handle column names dynamically
+        if "X_global" in df.columns:
+            src_coords = df[["X_global", "Y_global", "Z_global"]].values
+        else:
+            src_coords = df[["X", "Y", "Z"]].values
         
-        # Apply the transformation: s * R @ P + t
-        transformed_coords = (self.s * self.R @ src_coords.T).T + self.t
+        # Apply the transformation: s * P @ R.T + t  (assuming row vectors)
+        # Note: In derivation t was dst - s * R @ src. So dst = s * R @ src + t (column vectors)
+        # For row vectors P (Nx3): P_new = s * P @ R.T + t
+        transformed_coords = self.s * src_coords @ self.R.T + self.t
         
         return pd.DataFrame({
             "Point": df["Point"],
