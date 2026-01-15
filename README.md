@@ -5,13 +5,13 @@
 ## Key Features
 
 - **TBC Compatible**: Emulates TBC's default calibration behavior.
-- **Support for Multiple Projections**:
+- **WGS84 Focus**: All transformations are performed using the WGS84 geodetic datum.
+- **Support for Local Projections**:
   - TBC Default (Local Transverse Mercator).
   - UTM (Universal Transverse Mercator) with auto-zone detection.
   - Custom LTM (Local Transverse Mercator) with user-defined parameters.
 - **Transformation Engines**:
-  - 2D Similarity (4 parameters).
-  - 3D Helmert (7 parameters) using SVD/Procrustes analysis for robustness.
+  - 2D Similarity (4 parameters) for fitting projected coordinates to a local plane.
 - **Reporting**: Generates detailed Markdown reports including parameters and residual analysis.
 
 ## Installation
@@ -53,7 +53,6 @@ For more detailed information on methods and parameters, see the [Calibration Do
 
 - `src/sitecal/`: Main package source code.
 - `docs/`: Detailed technical documentation.
-- `tests/`: Automated tests (coming soon).
 
 ## License
 

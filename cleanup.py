@@ -10,6 +10,7 @@ def cleanup():
         "src/sitecal/commands/local2global.py",
         "src/sitecal/csv_handler.py",
         "src/sitecal/csv_repository.py",
+        "src/sitecal/math_engine.py",
     ]
     
     # 2. Buscar archivos vacíos en src

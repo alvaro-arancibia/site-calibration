@@ -110,104 +110,11 @@ class Similarity2D(Calibration):
         })
 
 
-class Helmert7(Calibration):
-    def __init__(self):
-        self.params = None
-        self.residuals = None
-        self.R = None
-        self.t = None
-        self.s = None
-
-    def train(self, df_local_geo: pd.DataFrame, df_global_geo: pd.DataFrame):
-        """
-        Calculates 7-parameter Helmert transformation using SVD (Procrustes analysis).
-        This method is robust against large rotations.
-        """
-        merged_df = pd.merge(df_local_geo, df_global_geo, on="Point", suffixes=('_local', '_global'))
-
-        src = merged_df[["X_global", "Y_global", "Z_global"]].values
-        dst = merged_df[["X_local", "Y_local", "Z_local"]].values
-
-        # 1. Center both point clouds
-        src_centroid = np.mean(src, axis=0)
-        dst_centroid = np.mean(dst, axis=0)
-        src_centered = src - src_centroid
-        dst_centered = dst - dst_centroid
-
-        # 2. Compute covariance matrix
-        H = src_centered.T @ dst_centered
-
-        # 3. Perform SVD
-        U, _, Vt = np.linalg.svd(H)
-
-        # 4. Calculate rotation matrix
-        R = Vt.T @ U.T
-
-        # 5. Check for reflection case
-        if np.linalg.det(R) < 0:
-            Vt[-1, :] *= -1
-            R = Vt.T @ U.T
-
-        # 6. Calculate scale factor
-        var_src = np.var(src_centered, axis=0).sum()
-        # s = Trace(D @ R) / var_src, but here simpler formulation via centered coords
-        # Re-verify scale calculation: s = sum(src * (R.T @ dst)) / sum(src^2) is one way
-        # Using the formulation: s = Trace(dst.T @ R @ src) / Trace(src.T @ src) ? 
-        # Actually standard procrustes scale:
-        s = np.sum(src_centered * (dst_centered @ R)) / np.sum(src_centered**2)
-        
-        # 7. Calculate translation
-        t = dst_centroid - s * src_centroid @ R.T
-        
-        self.R = R
-        self.t = t
-        self.s = s
-
-        self.params = {
-            "tx": t[0], "ty": t[1], "tz": t[2],
-            "s": s,
-            "R11": R[0, 0], "R12": R[0, 1], "R13": R[0, 2],
-            "R21": R[1, 0], "R22": R[1, 1], "R23": R[1, 2],
-            "R31": R[2, 0], "R32": R[2, 1], "R33": R[2, 2],
-        }
-        
-        # Calculate residuals
-        transformed = self.transform(merged_df)
-        self.residuals = pd.DataFrame({
-            "Point": merged_df["Point"],
-            "dE": transformed["X"] - merged_df["X_local"],
-            "dN": transformed["Y"] - merged_df["Y_local"],
-            "dH": transformed["Z"] - merged_df["Z_local"]
-        })
-
-    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        if self.R is None or self.t is None or self.s is None:
-            raise RuntimeError("The calibration model has not been trained.")
-
-        # Handle column names dynamically
-        if "X_global" in df.columns:
-            src_coords = df[["X_global", "Y_global", "Z_global"]].values
-        else:
-            src_coords = df[["X", "Y", "Z"]].values
-        
-        # Apply the transformation: s * P @ R.T + t  (assuming row vectors)
-        # Note: In derivation t was dst - s * R @ src. So dst = s * R @ src + t (column vectors)
-        # For row vectors P (Nx3): P_new = s * P @ R.T + t
-        transformed_coords = self.s * src_coords @ self.R.T + self.t
-        
-        return pd.DataFrame({
-            "Point": df["Point"],
-            "X": transformed_coords[:, 0],
-            "Y": transformed_coords[:, 1],
-            "Z": transformed_coords[:, 2]
-        })
 
 class CalibrationFactory:
     @staticmethod
     def create(method: str) -> Calibration:
         if method == "tbc" or method == "ltm":
             return Similarity2D()
-        elif method == "helmert":
-            return Helmert7()
         else:
             raise ValueError(f"Unknown calibration method: {method}")
