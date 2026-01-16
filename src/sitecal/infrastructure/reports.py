@@ -1,6 +1,7 @@
 import pandas as pd
 from sitecal.core.calibration_engine import Calibration
 import datetime
+import pytz
 
 def generate_markdown_report(
     calibration: Calibration,
@@ -13,16 +14,28 @@ def generate_markdown_report(
     
     report_lines = []
     
-    now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now = datetime.datetime.now(pytz.timezone('America/Santiago')).strftime("%Y-%m-%d %H:%M:%S")
     
     report_lines.append("# Site Calibration Report")
+    report_lines.append("")
     report_lines.append(f"Report generated on: {now}")
     report_lines.append("")
     report_lines.append(f"## Calibration Method: {method.upper()}")
     report_lines.append("")
+
+    # Transformation Parameters
+    report_lines.append("### Transformation Parameters")
+    report_lines.append("")
+    if calibration.params:
+        params_df = pd.DataFrame([calibration.params])
+        report_lines.append(params_df.to_markdown(index=False))
+    else:
+        report_lines.append("No parameters were calculated.")
+    report_lines.append("")
     
     # Parameters Summary
     report_lines.append("### Calculated Parameters")
+    report_lines.append("")
     if calibration.params:
         for key, value in calibration.params.items():
             report_lines.append(f"- **{key}:** `{value}`")
@@ -32,6 +45,7 @@ def generate_markdown_report(
 
     # Residuals Table
     report_lines.append("### Residuals (mm)")
+    report_lines.append("")
     if calibration.residuals is not None:
         residuals_mm = calibration.residuals.copy()
         residuals_mm["dE"] = (residuals_mm["dE"] * 1000).round(1)
@@ -45,6 +59,7 @@ def generate_markdown_report(
 
     # Statistics
     report_lines.append("### Statistics")
+    report_lines.append("")
     if calibration.residuals is not None:
         residuals = calibration.residuals
         # Calculate horizontal error
@@ -64,7 +79,6 @@ def generate_markdown_report(
 
     else:
         report_lines.append("Statistics could not be calculated.")
-        
-    # Write to file
-    with open(output_path, "w") as f:
-        f.write("\n".join(report_lines))
+    report_lines.append("")
+
+    return "\n".join(report_lines) + "\n"
