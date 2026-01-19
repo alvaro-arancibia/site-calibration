@@ -77,18 +77,12 @@ def read_csv_to_dataframe(path: str | Path) -> pd.DataFrame:
 
     df = pd.read_csv(p)
     
-    # Normalize column names to a consistent format
-    column_mapping = {
-        "id": "Point", "ID": "Point", "Id": "Point", "name": "Point", "Name": "Point",
-        "lon": "Lon", "longitude": "Lon",
-        "lat": "Lat", "latitude": "Lat",
-        "h": "h", "ellipsoidal_height": "h",
-        "E": "Easting", "easting": "Easting",
-        "N": "Northing", "northing": "Northing",
-        "M": "h_local", "m": "h_local", "elevation": "h_local", "H": "h_local"
-    }
+    df = pd.read_csv(p)
     
-    df.rename(columns=column_mapping, inplace=True)
+    # Strict Schema: No renaming.
+    # We expect:
+    # Global: Point, Latitude, Longitude, EllipsoidalHeight
+    # Local: Point, Easting, Northing, Elevation
     
     # Ensure Point column is string
     if "Point" in df.columns:

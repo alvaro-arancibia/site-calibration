@@ -21,8 +21,8 @@ class TBCDefault(Projection):
             raise ValueError("Cannot project empty DataFrame. Need at least one point to define origin.")
 
         # Use the first point as the projection origin
-        lat_0 = df.iloc[0]["Lat"]
-        lon_0 = df.iloc[0]["Lon"]
+        lat_0 = df.iloc[0]["Latitude"]
+        lon_0 = df.iloc[0]["Longitude"]
         
         # Define projection: TM, Origin at 1st point, Scale 1.0, FE 0, FN 0
         proj_string = (
@@ -38,7 +38,7 @@ class TBCDefault(Projection):
 
         try:
             # Transform all points to this local system
-            easting, northing = transformer.transform(df["Lon"].values, df["Lat"].values)
+            easting, northing = transformer.transform(df["Longitude"].values, df["Latitude"].values)
             
             df_out = df.copy()
             df_out["Easting"] = easting
@@ -58,14 +58,14 @@ class UTM(Projection):
         if df.empty:
              raise ValueError("Cannot project empty DataFrame")
 
-        lon_mean = df["Lon"].mean()
+        lon_mean = df["Longitude"].mean()
         # Simple UTM zone calculation
         utm_zone = int((lon_mean + 180) / 6) + 1
         
         src_crs = CRS("EPSG:4326")  # WGS84
         # Assuming southern hemisphere for Chile/South America focus, 
         # but technically should check Lat. keeping simple for MVP.
-        is_south = df["Lat"].mean() < 0
+        is_south = df["Latitude"].mean() < 0
         epsg_code = 32700 + utm_zone if is_south else 32600 + utm_zone
         
         dst_crs = CRS(f"EPSG:{epsg_code}")
@@ -73,7 +73,7 @@ class UTM(Projection):
         transformer = Transformer.from_crs(src_crs, dst_crs, always_xy=True)
 
         try:
-            easting, northing = transformer.transform(df["Lon"].values, df["Lat"].values)
+            easting, northing = transformer.transform(df["Longitude"].values, df["Latitude"].values)
             df_out = df.copy()
             df_out["Easting"] = easting
             df_out["Northing"] = northing
@@ -109,7 +109,7 @@ class LTM(Projection):
         transformer = Transformer.from_crs(src_crs, dst_crs, always_xy=True)
         
         try:
-            easting, northing = transformer.transform(df["Lon"].values, df["Lat"].values)
+            easting, northing = transformer.transform(df["Longitude"].values, df["Latitude"].values)
             df_out = df.copy()
             df_out["Easting"] = easting
             df_out["Northing"] = northing

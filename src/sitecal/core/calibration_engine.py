@@ -69,9 +69,9 @@ class Similarity2D(Calibration):
         # Z_error = Z_global - Z_local
         # Model: Z_error = C + S_N * (N_local - N_c) + S_E * (E_local - E_c)
         
-        # Get heights. Handle varying column names.
-        h_global = merged_df["h_global"].values if "h_global" in merged_df.columns else np.zeros(n)
-        h_local = merged_df["h_local"].values if "h_local" in merged_df.columns else np.zeros(n)
+        # Get heights. Strict Schema.
+        h_global = merged_df["EllipsoidalHeight"].values 
+        h_local = merged_df["Elevation"].values
         
         Z_error = h_global - h_local
         
@@ -110,16 +110,12 @@ class Similarity2D(Calibration):
             "Point": merged_df["Point"],
             "dE": transformed["Easting"] - merged_df["Easting_local"],
             "dN": transformed["Northing"] - merged_df["Northing_local"],
-            "dH": transformed["h"] - merged_df["h_local"] - (merged_df["h_global"] - merged_df["h_local"]) 
-            # Note on dH residual: 
-            # Transformed h = h_local + Correction. 
-            # Residual = (Transformed h) - h_global 
-            # Wait, dH is usually (Transformed - Measured/Control). 
-            # Here Global is Control.
-            # dH = Transformed["h"] - h_global
+            "dH": transformed["h"] - merged_df.get("Elevation", 0) - (merged_df.get("EllipsoidalHeight", 0) - merged_df.get("Elevation", 0)) 
         })
-        # let's correct dH calc based on TBC definition: dH = Source + Shift - Control
-        self.residuals["dH"] = transformed["h"] - merged_df.get("h_global", 0)
+        # dH = Transformed (Local Calc) - Expected Local (Elevation)
+        # Transformed["h"] is the calculated Local Height.
+        # So dH = Transformed["h"] - Elevation
+        self.residuals["dH"] = transformed["h"] - merged_df["Elevation"]
 
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -147,12 +143,14 @@ class Similarity2D(Calibration):
             x = df["Easting"].values
             y = df["Northing"].values
             
-        if "h_local" in df.columns:
-            h_local = df["h_local"].values
-        elif "h" in df.columns:
-             h_local = df["h"].values
+        # Strict: Dataframe passed to transform typically comes from Global Source or Local Validation
+        # If it's the global dataframe being transformed: it has 'EllipsoidalHeight'
+        if "Elevation" in df.columns:
+             h_input = df["Elevation"].values
+        elif "EllipsoidalHeight" in df.columns:
+             h_input = df["EllipsoidalHeight"].values
         else:
-             h_local = np.zeros(len(df))
+             h_input = np.zeros(len(df))
 
         # Apply 2D Sim
         E_trans = a * x - b * y + tE
@@ -191,7 +189,7 @@ class Similarity2D(Calibration):
         # Then Local = Global - Z_error. 
         # Yes.
         
-        H_trans = h_local - dZ # Wait, h_local variable name in this func might be misleading if it comes from 'h' column of input which might be global.
+        H_trans = h_input - dZ
         # Let's assume input to transform is "Source" (Global).
         
         return pd.DataFrame({

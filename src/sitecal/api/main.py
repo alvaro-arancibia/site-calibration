@@ -37,7 +37,12 @@ def validate_collinearity(df: pd.DataFrame) -> bool:
         return True
     
     ratio = np.min(eigvals) / np.max(eigvals)
+    ratio = np.min(eigvals) / np.max(eigvals)
     return ratio < 1e-4  # Threshold for collinearity
+
+@app.get("/")
+def read_root():
+    return {"message": "Site Calibration API is running. Use POST /calibrate to perform calibration."}
 
 @app.post("/calibrate", response_model=CalibrationResult)
 async def calibrate(

@@ -40,13 +40,39 @@ def main():
     # Main Input Section
     col1, col2 = st.columns(2)
     
+    global_df = None
+    local_df = None
+    
     with col1:
         st.subheader("Coordenadas Globales (CSV)")
         global_file = st.file_uploader("Subir CSV Global", type=["csv"], key="global")
+        if global_file:
+            has_header_g = st.checkbox("Tiene encabezados", value=True, key="header_g")
+            global_df = pd.read_csv(global_file, header=0 if has_header_g else None)
+            st.dataframe(global_df.head(), use_container_width=True)
+            
+            st.markdown("##### Mapeo de Columnas")
+            cols_g = global_df.columns.tolist()
+            g_point = st.selectbox("Point (ID)", cols_g, index=0 if cols_g else 0, key="g_pt")
+            g_lat = st.selectbox("Latitude", cols_g, index=1 if len(cols_g)>1 else 0, key="g_lat")
+            g_lon = st.selectbox("Longitude", cols_g, index=2 if len(cols_g)>2 else 0, key="g_lon")
+            g_h = st.selectbox("Ellipsoidal Height", cols_g, index=3 if len(cols_g)>3 else 0, key="g_h")
         
     with col2:
         st.subheader("Coordenadas Locales (CSV)")
         local_file = st.file_uploader("Subir CSV Local", type=["csv"], key="local")
+        if local_file:
+            has_header_l = st.checkbox("Tiene encabezados", value=True, key="header_l")
+            local_df = pd.read_csv(local_file, header=0 if has_header_l else None)
+            st.dataframe(local_df.head(), use_container_width=True)
+
+            st.markdown("##### Mapeo de Columnas")
+            cols_l = local_df.columns.tolist()
+            l_point = st.selectbox("Point (ID)", cols_l, index=0 if cols_l else 0, key="l_pt")
+            l_e = st.selectbox("Easting", cols_l, index=1 if len(cols_l)>1 else 0, key="l_e")
+            l_n = st.selectbox("Northing", cols_l, index=2 if len(cols_l)>2 else 0, key="l_n")
+            l_z = st.selectbox("Elevation", cols_l, index=3 if len(cols_l)>3 else 0, key="l_z")
+
 
     # Method Selection and Parameters
     st.subheader("Método y Parámetros")
@@ -71,20 +97,38 @@ def main():
     # Action
     st.markdown("---")
     if st.button("Calcular Calibración", type="primary", use_container_width=True):
-        if not global_file or not local_file:
+        if global_df is None or local_df is None:
             st.error("Por favor sube ambos archivos CSV (Global y Local).")
             return
 
         with st.spinner("Calculando parámetros de calibración..."):
             try:
-                # Prepare files for upload
-                # Reset file pointers to be safe
-                global_file.seek(0)
-                local_file.seek(0)
+                # Prepare Global CSV
+                df_g_ready = global_df.rename(columns={
+                    g_point: "Point",
+                    g_lat: "Latitude",
+                    g_lon: "Longitude", 
+                    g_h: "EllipsoidalHeight"
+                })[["Point", "Latitude", "Longitude", "EllipsoidalHeight"]]
                 
+                # Prepare Local CSV
+                df_l_ready = local_df.rename(columns={
+                    l_point: "Point",
+                    l_e: "Easting",
+                    l_n: "Northing",
+                    l_z: "Elevation"
+                })[["Point", "Easting", "Northing", "Elevation"]]
+
+                # Convert to CSV in memory
+                buffer_g = io.StringIO()
+                df_g_ready.to_csv(buffer_g, index=False)
+                
+                buffer_l = io.StringIO()
+                df_l_ready.to_csv(buffer_l, index=False)
+
                 files = {
-                    "global_csv": ("global.csv", global_file, "text/csv"),
-                    "local_csv": ("local.csv", local_file, "text/csv"),
+                    "global_csv": ("global.csv", buffer_g.getvalue(), "text/csv"),
+                    "local_csv": ("local.csv", buffer_l.getvalue(), "text/csv"),
                 }
                 
                 # Prepare query parameters
