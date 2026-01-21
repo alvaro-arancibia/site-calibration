@@ -1,60 +1,79 @@
-# sitecal
+# Site Calibration Pro (`sitecal`)
 
-`sitecal` is a Python-based CLI tool for performing site calibrations and coordinate transformations compatible with standard industry software.
+**Site Calibration Pro** is a modern, offline-first tool for performing site calibrations and coordinate transformations. It is compatible with industry standards and runs entirely in your browser as a **Progressive Web App (PWA)** or via the command line (CLI).
 
 ## Key Features
 
-- **Industry Compatible**: Emulates standard default calibration behavior.
-- **WGS84 Focus**: All transformations are performed using the WGS84 geodetic datum.
-- **Support for Local Projections**:
+- **Offline-First PWA**: Runs 100% in the browser (Tablet/Desktop) using WebAssembly (Pyodide). No backend server required.
+- **Industry Standard Compatible**: Emulates standard default calibration behavior (formerly specific to legacy software).
+- **Secure & Private**: All processing happens locally on your device. Your data never leaves your browser.
+- **Transformation Engines**:
+  - 2D Similarity (4-parameter) adjustments.
+  - Vertical Adjustment (Inclined Plane or Constant Shift).
+- **Projections**:
   - Default (Local Transverse Mercator).
   - UTM (Universal Transverse Mercator) with auto-zone detection.
-  - Custom LTM (Local Transverse Mercator) with user-defined parameters.
-- **Transformation Engines**:
-  - 2D Similarity (4 parameters) for fitting projected coordinates to a local plane.
-- **Reporting**: Generates detailed Markdown reports including parameters and residual analysis.
+  - Custom LTM (Local Transverse Mercator).
 
-## Installation
+---
 
-### Prerequisites
+## 🚀 Web / Tablet Usage (PWA)
 
-- Python 3.11 or higher.
+The easiest way to use Site Calibration Pro is via the Web Interface.
 
-### Steps
+1. **Access the App**: Navigate to the hosted version (e.g., via GitHub Pages) or run it locally.
+2. **Install on Tablet (iPad / Android)**:
+    - Tap "Share" (iOS) or the Menu (Android).
+    - Select **"Add to Home Screen"**.
+    - The app will now work locally, **even without an internet connection**.
 
-1. Clone the repository:
+### Running Locally (Browser)
 
-   ```bash
-   git clone https://github.com/alvaro-arancibia/site-calibration.git
-   cd site-calibration
-   ```
+If you have the source code and want to run the PWA locally:
 
-2. Create a virtual environment and install the package:
+```bash
+cd dist
+python3 -m http.server 8000
+# Open http://localhost:8000 in your browser
+```
 
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   pip install .
-   ```
+---
 
-## Quick Start
+## 💻 CLI Usage (Python)
 
-Perform a basic site calibration using the standard default method:
+For automation or desktop usage, you can use the Command Line Interface.
+
+### Installation
+
+```bash
+git clone https://github.com/alvaro-arancibia/site-calibration.git
+cd site-calibration
+python -m venv .venv
+source .venv/bin/activate
+pip install .
+```
+
+### Quick Start (CLI)
+
+Perform a basic site calibration:
 
 ```bash
 sitecal local2global \
-  --global-csv path/to/global_coords.csv \
-  --local-csv path/to/local_coords.csv \
+  --global-csv data/global_points.csv \
+  --local-csv data/local_points.csv \
   --method default \
   --output-report report.md
 ```
 
 For more detailed information on methods and parameters, see the [Calibration Documentation](docs/calibration.md).
 
+---
+
 ## Project Structure
 
-- `src/sitecal/`: Main package source code.
-- `docs/`: Detailed technical documentation.
+- `dist/`: **Production PWA**. Contains `index.html` (monolithic) and assets. Ready for static hosting.
+- `src/sitecal/`: Core Python package (shared by CLI and PWA).
+- `docs/`: Technical documentation.
 
 ## License
 
