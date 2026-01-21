@@ -12,7 +12,6 @@
   - Vertical Adjustment (Inclined Plane or Constant Shift).
 - **Projections**:
   - Default (Local Transverse Mercator).
-  - UTM (Universal Transverse Mercator) with auto-zone detection.
   - Custom LTM (Local Transverse Mercator).
 
 ---
