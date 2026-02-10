@@ -151,7 +151,7 @@ def main():
                 ]
                 
                 report_text = generate_markdown_report(engine, "not_used", method.lower())
-                
+
                 result_data = {
                     "parameters": {
                         "horizontal": engine.horizontal_params,
@@ -160,11 +160,65 @@ def main():
                     "residuals": residuals,
                     "report": report_text
                 }
-                
+
                 display_results(result_data)
+
+                # Save calibration state for transforming new points
+                st.session_state["calibration_engine"] = engine
+                st.session_state["calibration_projection"] = projection
 
             except Exception as e:
                 st.error(f"Error Interno: {str(e)}")
+
+    # --- Transform New Points Section ---
+    if "calibration_engine" in st.session_state and "calibration_projection" in st.session_state:
+        st.markdown("---")
+        st.subheader("Transformar Puntos Nuevos")
+        st.markdown("Sube un CSV con puntos GPS nuevos para obtener sus coordenadas locales usando la calibracion activa.")
+
+        new_file = st.file_uploader("Subir CSV de Puntos Nuevos", type=["csv"], key="new_points")
+        if new_file:
+            has_header_n = st.checkbox("Tiene encabezados", value=True, key="header_n")
+            new_df = pd.read_csv(new_file, header=0 if has_header_n else None)
+            st.dataframe(new_df.head(), use_container_width=True)
+
+            st.markdown("##### Mapeo de Columnas")
+            cols_n = new_df.columns.tolist()
+            col_a, col_b, col_c, col_d = st.columns(4)
+            with col_a:
+                n_point = st.selectbox("Point (ID)", cols_n, index=0 if cols_n else 0, key="n_pt")
+            with col_b:
+                n_lat = st.selectbox("Latitude", cols_n, index=1 if len(cols_n) > 1 else 0, key="n_lat")
+            with col_c:
+                n_lon = st.selectbox("Longitude", cols_n, index=2 if len(cols_n) > 2 else 0, key="n_lon")
+            with col_d:
+                n_h = st.selectbox("Ellipsoidal Height", cols_n, index=3 if len(cols_n) > 3 else 0, key="n_h")
+
+            if st.button("Transformar", type="primary"):
+                try:
+                    df_n_ready = new_df.rename(columns={
+                        n_point: "Point", n_lat: "Latitude", n_lon: "Longitude", n_h: "EllipsoidalHeight"
+                    })[["Point", "Latitude", "Longitude", "EllipsoidalHeight"]]
+                    df_n_ready["Point"] = df_n_ready["Point"].astype(str)
+
+                    proj = st.session_state["calibration_projection"]
+                    eng = st.session_state["calibration_engine"]
+
+                    df_n_proj = proj.project(df_n_ready)
+                    transformed = eng.transform(df_n_proj)
+
+                    st.subheader("Resultados de Transformacion")
+                    st.dataframe(transformed.rename(columns={"h": "Elevation"}), use_container_width=True)
+
+                    csv_out = transformed.rename(columns={"h": "Elevation"}).to_csv(index=False)
+                    st.download_button(
+                        label="Descargar CSV",
+                        data=csv_out,
+                        file_name="transformed_points.csv",
+                        mime="text/csv"
+                    )
+                except Exception as e:
+                    st.error(f"Error al transformar: {str(e)}")
 
 def display_results(data):
     # 1. Calculated Parameters

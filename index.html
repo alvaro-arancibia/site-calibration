@@ -1,0 +1,1614 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Site Calibration Pro - JavaScript</title>
+    <meta name="description" content="Herramienta de calibración de sitio offline - JavaScript puro">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary-color: #0d6efd;
+            --bg-dark: #0e1117;
+            --card-bg: #1a1d24;
+            --text-light: #fafafa;
+            --border-color: #2d3139;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+
+        .card-header {
+            background-color: rgba(255,255,255,0.05);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .form-control, .form-select {
+            background-color: #262930;
+            border-color: var(--border-color);
+            color: var(--text-light);
+        }
+
+        .form-control:focus, .form-select:focus {
+            background-color: #2d3139;
+            border-color: var(--primary-color);
+            color: var(--text-light);
+            box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+        }
+
+        .form-control::file-selector-button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+        }
+
+        .form-control::placeholder {
+            color: #6c757d;
+        }
+
+        input[type="number"] {
+            color: #fafafa !important;
+        }
+
+        .table {
+            color: var(--text-light);
+        }
+
+        .table-dark {
+            --bs-table-bg: #1a1d24;
+            --bs-table-border-color: var(--border-color);
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, #1e2530 0%, #262d3a 100%);
+            border-radius: 10px;
+            padding: 1rem;
+            text-align: center;
+            border: 1px solid var(--border-color);
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #4dabf7;
+            font-family: 'Consolas', monospace;
+        }
+
+        .metric-label {
+            font-size: 0.85rem;
+            color: #adb5bd;
+            margin-top: 0.25rem;
+        }
+
+        /* Mejoras de contraste */
+        .form-label {
+            color: #e9ecef;
+        }
+
+        .form-check-label {
+            color: #e9ecef;
+        }
+
+        .text-secondary {
+            color: #adb5bd !important;
+        }
+
+        .card-header h5, .card-header h6 {
+            color: #ffffff;
+        }
+
+        .accordion-button::after {
+            filter: invert(1);
+        }
+
+        .accordion-item {
+            background-color: var(--card-bg);
+            border-color: var(--border-color);
+        }
+
+        .form-select option {
+            background-color: #262930;
+            color: #fafafa;
+        }
+
+        small, .small {
+            color: #ced4da;
+        }
+
+        p {
+            color: #dee2e6;
+        }
+
+        h6 {
+            color: #e9ecef;
+        }
+
+        .table thead th {
+            color: #ffffff;
+            background-color: #212529;
+        }
+
+        .table tbody td {
+            color: #e9ecef;
+        }
+
+        .preview-table {
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 0.85rem;
+        }
+
+        .preview-table table {
+            margin-bottom: 0;
+        }
+
+        .preview-table th {
+            color: #ffffff !important;
+            background-color: #212529 !important;
+        }
+
+        .preview-table td {
+            color: #e9ecef !important;
+        }
+
+        #chartContainer {
+            background-color: #1a1d24;
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .accordion-button {
+            background-color: var(--card-bg);
+            color: #ffffff;
+        }
+
+        .accordion-button:not(.collapsed) {
+            background-color: #262d3a;
+            color: #ffffff;
+            box-shadow: none;
+        }
+
+        .accordion-button:focus {
+            box-shadow: none;
+            border-color: var(--border-color);
+        }
+
+        .accordion-body {
+            background-color: var(--card-bg);
+            color: #e9ecef;
+        }
+
+        .code-block {
+            background-color: #0d1117;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 1rem;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            color: #e6edf3;
+        }
+
+        .spinner-container {
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            color: #ffffff;
+        }
+
+        .btn-calculate {
+            background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+            border: none;
+            padding: 0.75rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        .btn-calculate:hover {
+            background: linear-gradient(135deg, #0a58ca 0%, #084298 100%);
+        }
+
+        .alert-section {
+            display: none;
+        }
+
+        .header-icon {
+            font-size: 1.25rem;
+            margin-right: 0.5rem;
+        }
+
+        #resultsSection {
+            display: none;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+        }
+
+        /* Asegurar buen contraste en todos los elementos */
+        .btn-outline-light {
+            color: #ffffff;
+            border-color: #6c757d;
+        }
+
+        .btn-outline-light:hover {
+            background-color: #6c757d;
+            color: #ffffff;
+        }
+
+        .alert {
+            color: #ffffff;
+        }
+
+        .alert-danger {
+            background-color: #842029;
+            border-color: #842029;
+        }
+
+        .alert-success {
+            background-color: #0f5132;
+            border-color: #0f5132;
+        }
+
+        footer small {
+            color: #868e96;
+        }
+
+        strong {
+            color: #ffffff;
+        }
+
+        .display-5 {
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <!-- Header -->
+        <div class="text-center mb-4">
+            <h1 class="display-5 fw-bold">
+                <i class="bi bi-globe-americas text-primary"></i>
+                Site Calibration
+            </h1>
+        </div>
+
+        <!-- Instructions Accordion -->
+        <div class="accordion mb-4" id="instructionsAccordion">
+            <div class="accordion-item border-0">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#instructionsCollapse">
+                        <i class="bi bi-info-circle me-2"></i> Instrucciones de Formato CSV
+                    </button>
+                </h2>
+                <div id="instructionsCollapse" class="accordion-collapse collapse" data-bs-parent="#instructionsAccordion">
+                    <div class="accordion-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-satellite text-info"></i> Archivo Global (GNSS)</h6>
+                                <p class="small text-secondary">
+                                    Coordenadas Geodesicas WGS84 en Grados Decimales.<br>
+                                    <strong>Columnas:</strong> Point, Latitude, Longitude, EllipsoidalHeight<br>
+                                    <strong>Precision:</strong> Minimo 8 decimales en Lat/Lon
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-geo-alt text-success"></i> Archivo Local (Planas)</h6>
+                                <p class="small text-secondary">
+                                    Coordenadas Cartesianas Locales en Metros.<br>
+                                    <strong>Columnas:</strong> Point, Easting, Northing, Elevation
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alert Section -->
+        <div id="alertSection" class="alert-section mb-4">
+            <div id="alertContent" class="alert" role="alert"></div>
+        </div>
+
+        <!-- Main Input Section -->
+        <div class="row g-4 mb-4">
+            <!-- Global CSV -->
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-satellite header-icon text-info"></i>
+                            Coordenadas Globales (CSV)
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <input type="file" class="form-control" id="globalFile" accept=".csv">
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="globalHasHeader" checked>
+                            <label class="form-check-label" for="globalHasHeader">Tiene encabezados</label>
+                        </div>
+                        <div id="globalPreview" class="preview-table mb-3" style="display:none;"></div>
+
+                        <div id="globalMapping" style="display:none;">
+                            <h6 class="text-secondary mb-2">Mapeo de Columnas</h6>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label class="form-label small">Point (ID)</label>
+                                    <select class="form-select form-select-sm" id="gPoint"></select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small">Latitude</label>
+                                    <select class="form-select form-select-sm" id="gLat"></select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small">Longitude</label>
+                                    <select class="form-select form-select-sm" id="gLon"></select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small">Ellipsoidal Height</label>
+                                    <select class="form-select form-select-sm" id="gHeight"></select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Local CSV -->
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-geo-alt header-icon text-success"></i>
+                            Coordenadas Locales (CSV)
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <input type="file" class="form-control" id="localFile" accept=".csv">
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="localHasHeader" checked>
+                            <label class="form-check-label" for="localHasHeader">Tiene encabezados</label>
+                        </div>
+                        <div id="localPreview" class="preview-table mb-3" style="display:none;"></div>
+
+                        <div id="localMapping" style="display:none;">
+                            <h6 class="text-secondary mb-2">Mapeo de Columnas</h6>
+                            <div class="row g-2">
+                                <div class="col-6">
+                                    <label class="form-label small">Point (ID)</label>
+                                    <select class="form-select form-select-sm" id="lPoint"></select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small">Easting</label>
+                                    <select class="form-select form-select-sm" id="lEasting"></select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small">Northing</label>
+                                    <select class="form-select form-select-sm" id="lNorthing"></select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label small">Elevation</label>
+                                    <select class="form-select form-select-sm" id="lElevation"></select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Chart -->
+                        <div id="chartContainer" class="mt-3" style="display:none;">
+                            <h6 class="text-secondary mb-2">Geometria Local</h6>
+                            <div style="position: relative; height: 200px; width: 100%;">
+                                <canvas id="geometryChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Method Selection -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-sliders header-icon text-warning"></i>
+                    Metodo y Parametros
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label">Metodo de Proyeccion</label>
+                        <select class="form-select" id="projectionMethod">
+                            <option value="default" selected>Default (LTM centrado)</option>
+                            <option value="ltm">LTM (Personalizado)</option>
+                            <option value="utm">UTM (Automatico)</option>
+                        </select>
+                    </div>
+
+                    <div id="ltmParams" class="col-md-9" style="display:none;">
+                        <div class="row g-2">
+                            <div class="col-md-3">
+                                <label class="form-label small">Meridiano Central</label>
+                                <input type="number" class="form-control form-control-sm" id="centralMeridian" value="-72.0" step="0.0001">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small">Latitud Origen</label>
+                                <input type="number" class="form-control form-control-sm" id="latOrigin" value="0" step="0.0001">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">Factor Escala</label>
+                                <input type="number" class="form-control form-control-sm" id="scaleFactor" value="0.9996" step="0.000001">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">Falso Este</label>
+                                <input type="number" class="form-control form-control-sm" id="falseEasting" value="500000">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">Falso Norte</label>
+                                <input type="number" class="form-control form-control-sm" id="falseNorthing" value="10000000">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Calculate Button -->
+        <div class="text-center mb-4">
+            <button type="button" class="btn btn-primary btn-calculate" id="calculateBtn">
+                <i class="bi bi-calculator me-2"></i>
+                Calcular Calibracion (Offline)
+            </button>
+        </div>
+
+        <!-- Spinner -->
+        <div id="spinner" class="spinner-container">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Procesando...</span>
+            </div>
+            <span class="ms-3">Procesando localmente...</span>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection">
+            <!-- Horizontal Parameters -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-arrows-move header-icon text-info"></i>
+                        Ajuste Horizontal (2D)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <div class="metric-card">
+                                <div class="metric-value" id="metricA">-</div>
+                                <div class="metric-label">Factor Escala (a)</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-card">
+                                <div class="metric-value" id="metricB">-</div>
+                                <div class="metric-label">Rotacion (b)</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-card">
+                                <div class="metric-value" id="metricTE">-</div>
+                                <div class="metric-label">Traslacion Este</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-card">
+                                <div class="metric-value" id="metricTN">-</div>
+                                <div class="metric-label">Traslacion Norte</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-6">
+                            <div class="metric-card">
+                                <div class="metric-value" id="metricScale">-</div>
+                                <div class="metric-label">Escala Implicita</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="metric-card">
+                                <div class="metric-value" id="metricRotation">-</div>
+                                <div class="metric-label">Rotacion Implicita</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vertical Parameters -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-arrows-vertical header-icon text-success"></i>
+                        Ajuste Vertical (1D)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <div class="metric-card">
+                                <div class="metric-value" id="metricShift">-</div>
+                                <div class="metric-label">Shift Vertical</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-card">
+                                <div class="metric-value" id="metricSlopeN">-</div>
+                                <div class="metric-label">Inclinacion N (ppm)</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-card">
+                                <div class="metric-value" id="metricSlopeE">-</div>
+                                <div class="metric-label">Inclinacion E (ppm)</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-card">
+                                <div class="metric-value" id="metricCentroid">-</div>
+                                <div class="metric-label">Centroide (N, E)</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Residuals Table -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-table header-icon text-warning"></i>
+                        Cuadricula de Residuales
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-dark table-striped table-hover" id="residualsTable">
+                            <thead>
+                                <tr>
+                                    <th>Point</th>
+                                    <th>dE (mm)</th>
+                                    <th>dN (mm)</th>
+                                    <th>dH (mm)</th>
+                                    <th>Error H (mm)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="residualsBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-graph-up header-icon text-danger"></i>
+                        Estadisticas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <div class="metric-card">
+                                <div class="metric-value text-danger" id="statWorst">-</div>
+                                <div class="metric-label">Peor Punto</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-card">
+                                <div class="metric-value text-success" id="statBest">-</div>
+                                <div class="metric-label">Mejor Punto</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-card">
+                                <div class="metric-value" id="statStdDev">-</div>
+                                <div class="metric-label">Desv. Est. (mm)</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="metric-card">
+                                <div class="metric-value" id="statP99">-</div>
+                                <div class="metric-label">Percentil 99</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Markdown Report -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-file-text header-icon text-secondary"></i>
+                        Reporte Completo (Markdown)
+                    </h5>
+                    <button class="btn btn-outline-light btn-sm" id="copyReportBtn">
+                        <i class="bi bi-clipboard me-1"></i> Copiar
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="code-block" id="markdownReport"></div>
+                </div>
+            </div>
+
+            <!-- Transform New Points -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-arrow-left-right header-icon text-primary"></i>
+                        Transformar Puntos Nuevos
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-secondary small">Sube un CSV con puntos GPS nuevos para obtener sus coordenadas locales usando la calibracion activa.</p>
+                    <div class="mb-3">
+                        <input type="file" class="form-control" id="transformFile" accept=".csv">
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="transformHasHeader" checked>
+                        <label class="form-check-label" for="transformHasHeader">Tiene encabezados</label>
+                    </div>
+                    <div id="transformPreview" class="preview-table mb-3" style="display:none;"></div>
+
+                    <div id="transformMapping" style="display:none;">
+                        <h6 class="text-secondary mb-2">Mapeo de Columnas</h6>
+                        <div class="row g-2 mb-3">
+                            <div class="col-6 col-md-3">
+                                <label class="form-label small">Point (ID)</label>
+                                <select class="form-select form-select-sm" id="tPoint"></select>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="form-label small">Latitude</label>
+                                <select class="form-select form-select-sm" id="tLat"></select>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="form-label small">Longitude</label>
+                                <select class="form-select form-select-sm" id="tLon"></select>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="form-label small">Ellipsoidal Height</label>
+                                <select class="form-select form-select-sm" id="tHeight"></select>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-primary btn-sm mb-3" id="transformBtn">
+                            <i class="bi bi-arrow-left-right me-1"></i> Transformar
+                        </button>
+                    </div>
+
+                    <div id="transformResults" style="display:none;">
+                        <h6 class="text-secondary mb-2">Resultados</h6>
+                        <div class="table-responsive mb-3">
+                            <table class="table table-dark table-striped table-hover table-sm" id="transformTable">
+                                <thead>
+                                    <tr>
+                                        <th>Point</th>
+                                        <th>Easting</th>
+                                        <th>Northing</th>
+                                        <th>Elevation</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="transformBody"></tbody>
+                            </table>
+                        </div>
+                        <button type="button" class="btn btn-outline-light btn-sm" id="downloadTransformBtn">
+                            <i class="bi bi-download me-1"></i> Descargar CSV
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="text-center text-secondary py-4">
+            <small>Site Calibration Pro v1.0 - JavaScript Edition | 100% Offline</small>
+        </footer>
+    </div>
+
+    <!-- Libraries CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/proj4@2.9.2/dist/proj4.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjs@12.2.1/lib/browser/math.min.js"></script>
+
+    <script>
+        // ============================================
+        // SITE CALIBRATION ENGINE - JavaScript
+        // ============================================
+
+        // Global state
+        let globalData = null;
+        let localData = null;
+        let geometryChart = null;
+        let calibratedEngine = null;
+        let calibrationMethod = null;
+        let calibrationParams = null;
+
+        // ============================================
+        // CSV PARSING & UI
+        // ============================================
+
+        function parseCSV(file, hasHeader) {
+            return new Promise((resolve, reject) => {
+                Papa.parse(file, {
+                    header: hasHeader,
+                    dynamicTyping: true,
+                    skipEmptyLines: true,
+                    complete: (results) => resolve(results),
+                    error: (error) => reject(error)
+                });
+            });
+        }
+
+        function renderPreviewTable(data, containerId) {
+            const container = document.getElementById(containerId);
+            const previewData = data.slice(0, 5);
+            const columns = Object.keys(previewData[0] || {});
+
+            let html = '<table class="table table-dark table-sm table-bordered"><thead><tr>';
+            columns.forEach(col => {
+                html += `<th>${col}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+
+            previewData.forEach(row => {
+                html += '<tr>';
+                columns.forEach(col => {
+                    const val = row[col];
+                    html += `<td>${val !== null && val !== undefined ? val : ''}</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+
+            container.innerHTML = html;
+            container.style.display = 'block';
+        }
+
+        function populateColumnSelects(columns, selectIds, defaultIndices) {
+            selectIds.forEach((id, idx) => {
+                const select = document.getElementById(id);
+                select.innerHTML = '';
+                columns.forEach((col, colIdx) => {
+                    const option = document.createElement('option');
+                    option.value = col;
+                    option.textContent = col;
+                    if (colIdx === (defaultIndices[idx] || 0)) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
+            });
+        }
+
+        function updateGeometryChart() {
+            if (!localData || localData.length < 2) return;
+
+            const lEasting = document.getElementById('lEasting').value;
+            const lNorthing = document.getElementById('lNorthing').value;
+            const lPoint = document.getElementById('lPoint').value;
+
+            const eastings = localData.map(r => parseFloat(r[lEasting])).filter(v => !isNaN(v));
+            const northings = localData.map(r => parseFloat(r[lNorthing])).filter(v => !isNaN(v));
+            const labels = localData.map(r => String(r[lPoint]));
+
+            if (eastings.length < 2) return;
+
+            const chartContainer = document.getElementById('chartContainer');
+            chartContainer.style.display = 'block';
+
+            const ctx = document.getElementById('geometryChart').getContext('2d');
+
+            if (geometryChart) {
+                geometryChart.destroy();
+            }
+
+            geometryChart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Puntos Locales',
+                        data: eastings.map((e, i) => ({ x: e, y: northings[i] })),
+                        backgroundColor: '#FF4B4B',
+                        pointRadius: 8,
+                        pointHoverRadius: 12
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: 1.5,
+                    animation: false,
+                    resizeDelay: 100,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => {
+                                    const idx = context.dataIndex;
+                                    return `${labels[idx]}: E=${context.parsed.x.toFixed(2)}, N=${context.parsed.y.toFixed(2)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Easting (m)', color: '#aaa' },
+                            grid: { color: '#333' },
+                            ticks: { color: '#aaa' }
+                        },
+                        y: {
+                            title: { display: true, text: 'Northing (m)', color: '#aaa' },
+                            grid: { color: '#333' },
+                            ticks: { color: '#aaa' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ============================================
+        // PROJECTION ENGINE (using Proj4js)
+        // ============================================
+
+        class ProjectionEngine {
+            static WGS84 = 'EPSG:4326';
+
+            static createDefaultProjection(lat0, lon0) {
+                // Local Transverse Mercator centered on first point
+                return `+proj=tmerc +lat_0=${lat0} +lon_0=${lon0} +k=1.0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs`;
+            }
+
+            static createLTMProjection(centralMeridian, latOrigin, scaleFactor, falseEasting, falseNorthing) {
+                return `+proj=tmerc +lat_0=${latOrigin} +lon_0=${centralMeridian} +k=${scaleFactor} +x_0=${falseEasting} +y_0=${falseNorthing} +ellps=WGS84 +datum=WGS84 +units=m +no_defs`;
+            }
+
+            static createUTMProjection(lon, lat) {
+                const zone = Math.floor((lon + 180) / 6) + 1;
+                const isSouth = lat < 0;
+                const epsg = isSouth ? 32700 + zone : 32600 + zone;
+                return `EPSG:${epsg}`;
+            }
+
+            static project(data, method, params = {}) {
+                if (data.length === 0) {
+                    throw new Error('No hay datos para proyectar');
+                }
+
+                let projString;
+                const firstLat = parseFloat(data[0].Latitude);
+                const firstLon = parseFloat(data[0].Longitude);
+
+                // Calculate mean for UTM
+                const meanLat = data.reduce((sum, r) => sum + parseFloat(r.Latitude), 0) / data.length;
+                const meanLon = data.reduce((sum, r) => sum + parseFloat(r.Longitude), 0) / data.length;
+
+                switch (method) {
+                    case 'default':
+                        projString = this.createDefaultProjection(firstLat, firstLon);
+                        break;
+                    case 'ltm':
+                        projString = this.createLTMProjection(
+                            params.centralMeridian,
+                            params.latOrigin || 0,
+                            params.scaleFactor,
+                            params.falseEasting,
+                            params.falseNorthing
+                        );
+                        break;
+                    case 'utm':
+                        projString = this.createUTMProjection(meanLon, meanLat);
+                        break;
+                    default:
+                        throw new Error(`Metodo de proyeccion desconocido: ${method}`);
+                }
+
+                // Define projection
+                const proj = proj4(this.WGS84, projString);
+
+                // Project all points
+                return data.map(row => {
+                    const lon = parseFloat(row.Longitude);
+                    const lat = parseFloat(row.Latitude);
+                    const [easting, northing] = proj.forward([lon, lat]);
+
+                    return {
+                        ...row,
+                        Easting_global: easting,
+                        Northing_global: northing
+                    };
+                });
+            }
+        }
+
+        // ============================================
+        // CALIBRATION ENGINE (2D Similarity + Vertical)
+        // ============================================
+
+        class CalibrationEngine {
+            constructor() {
+                this.horizontalParams = null;
+                this.verticalParams = null;
+                this.residuals = null;
+            }
+
+            train(localData, globalData) {
+                // Merge data by Point
+                const merged = [];
+                const globalMap = new Map();
+
+                globalData.forEach(row => {
+                    globalMap.set(String(row.Point), row);
+                });
+
+                localData.forEach(row => {
+                    const pointId = String(row.Point);
+                    if (globalMap.has(pointId)) {
+                        const globalRow = globalMap.get(pointId);
+                        merged.push({
+                            Point: pointId,
+                            E_local: parseFloat(row.Easting),
+                            N_local: parseFloat(row.Northing),
+                            H_local: parseFloat(row.Elevation),
+                            E_global: parseFloat(globalRow.Easting_global),
+                            N_global: parseFloat(globalRow.Northing_global),
+                            H_global: parseFloat(globalRow.EllipsoidalHeight)
+                        });
+                    }
+                });
+
+                if (merged.length < 3) {
+                    throw new Error(`Solo se encontraron ${merged.length} puntos comunes. Se requieren minimo 3.`);
+                }
+
+                // Check collinearity
+                if (this.checkCollinearity(merged)) {
+                    throw new Error('Los puntos son colineales o geograficamente muy cercanos. Geometria inestable.');
+                }
+
+                const n = merged.length;
+
+                // ========== HORIZONTAL (2D Similarity) ==========
+                // Extract coordinates
+                const x = merged.map(r => r.E_global);  // Global Easting (projected)
+                const y = merged.map(r => r.N_global);  // Global Northing (projected)
+                const E = merged.map(r => r.E_local);   // Local Easting
+                const N = merged.map(r => r.N_local);   // Local Northing
+
+                // Calculate centroids
+                const x_c = x.reduce((a, b) => a + b, 0) / n;
+                const y_c = y.reduce((a, b) => a + b, 0) / n;
+                const E_c = E.reduce((a, b) => a + b, 0) / n;
+                const N_c = N.reduce((a, b) => a + b, 0) / n;
+
+                // Center coordinates
+                const x_prime = x.map(v => v - x_c);
+                const y_prime = y.map(v => v - y_c);
+                const E_prime = E.map(v => v - E_c);
+                const N_prime = N.map(v => v - N_c);
+
+                // Build matrix A for least squares: [x', -y'; y', x'] * [a; b] = [E'; N']
+                // Rearranged: A * params = L
+                const A = [];
+                const L = [];
+
+                for (let i = 0; i < n; i++) {
+                    A.push([x_prime[i], -y_prime[i]]);
+                    L.push(E_prime[i]);
+                }
+                for (let i = 0; i < n; i++) {
+                    A.push([y_prime[i], x_prime[i]]);
+                    L.push(N_prime[i]);
+                }
+
+                // Solve using least squares: (A'A)^-1 * A' * L
+                const params_ab = this.leastSquares(A, L);
+                const a = params_ab[0];
+                const b = params_ab[1];
+
+                // Calculate translations
+                const tE = E_c - a * x_c + b * y_c;
+                const tN = N_c - b * x_c - a * y_c;
+
+                this.horizontalParams = { a, b, tE, tN };
+
+                // ========== VERTICAL (Inclined Plane) ==========
+                // Z_error = Z_global - Z_local
+                // Model: Z_error = C + S_N * (N - N_c) + S_E * (E - E_c)
+
+                const h_global = merged.map(r => r.H_global);
+                const h_local = merged.map(r => r.H_local);
+                const Z_error = merged.map((_, i) => h_global[i] - h_local[i]);
+
+                let C, slope_n, slope_e;
+
+                if (n >= 3) {
+                    // Planar fit
+                    const A_v = [];
+                    for (let i = 0; i < n; i++) {
+                        A_v.push([1, N_prime[i], E_prime[i]]);
+                    }
+
+                    const v_params = this.leastSquares(A_v, Z_error);
+                    C = v_params[0];
+                    slope_n = v_params[1];
+                    slope_e = v_params[2];
+                } else {
+                    C = Z_error.reduce((a, b) => a + b, 0) / n;
+                    slope_n = 0;
+                    slope_e = 0;
+                }
+
+                this.verticalParams = {
+                    vertical_shift: C,
+                    slope_north: slope_n,
+                    slope_east: slope_e,
+                    centroid_north: N_c,
+                    centroid_east: E_c
+                };
+
+                // ========== CALCULATE RESIDUALS ==========
+                this.residuals = merged.map(row => {
+                    // Transform global to local
+                    const E_trans = a * row.E_global - b * row.N_global + tE;
+                    const N_trans = b * row.E_global + a * row.N_global + tN;
+
+                    // Vertical adjustment
+                    const dZ = C + slope_n * (N_trans - N_c) + slope_e * (E_trans - E_c);
+                    const H_trans = row.H_global - dZ;
+
+                    return {
+                        Point: row.Point,
+                        dE: E_trans - row.E_local,
+                        dN: N_trans - row.N_local,
+                        dH: H_trans - row.H_local
+                    };
+                });
+            }
+
+            leastSquares(A, L) {
+                // Convert to math.js matrices
+                const matA = math.matrix(A);
+                const matL = math.matrix(L);
+
+                // Normal equations: (A'A)^-1 * A' * L
+                const At = math.transpose(matA);
+                const AtA = math.multiply(At, matA);
+                const AtL = math.multiply(At, matL);
+
+                // Solve using LU decomposition
+                const solution = math.lusolve(AtA, AtL);
+
+                // Extract values
+                return math.flatten(solution).toArray();
+            }
+
+            transform(data) {
+                if (!this.horizontalParams || !this.verticalParams) {
+                    throw new Error('El modelo de calibracion no ha sido entrenado.');
+                }
+
+                const { a, b, tE, tN } = this.horizontalParams;
+                const { vertical_shift: C, slope_north: Sn, slope_east: Se,
+                        centroid_north: Nc, centroid_east: Ec } = this.verticalParams;
+
+                return data.map(row => {
+                    const x = parseFloat(row.Easting_global);
+                    const y = parseFloat(row.Northing_global);
+                    const h = parseFloat(row.EllipsoidalHeight);
+
+                    const E_trans = a * x - b * y + tE;
+                    const N_trans = b * x + a * y + tN;
+                    const dZ = C + Sn * (N_trans - Nc) + Se * (E_trans - Ec);
+                    const H_trans = h - dZ;
+
+                    return {
+                        Point: String(row.Point),
+                        Easting: E_trans,
+                        Northing: N_trans,
+                        Elevation: H_trans
+                    };
+                });
+            }
+
+            checkCollinearity(data) {
+                if (data.length < 3) return false;
+
+                const coords = data.map(r => [r.E_global, r.N_global]);
+
+                // Calculate centroid
+                const n = coords.length;
+                const cx = coords.reduce((s, c) => s + c[0], 0) / n;
+                const cy = coords.reduce((s, c) => s + c[1], 0) / n;
+
+                // Center coordinates
+                const centered = coords.map(c => [c[0] - cx, c[1] - cy]);
+
+                // Calculate covariance matrix
+                let cov00 = 0, cov01 = 0, cov11 = 0;
+                centered.forEach(c => {
+                    cov00 += c[0] * c[0];
+                    cov01 += c[0] * c[1];
+                    cov11 += c[1] * c[1];
+                });
+                cov00 /= n;
+                cov01 /= n;
+                cov11 /= n;
+
+                // Calculate eigenvalues of 2x2 matrix
+                const trace = cov00 + cov11;
+                const det = cov00 * cov11 - cov01 * cov01;
+                const discriminant = Math.sqrt(Math.max(0, trace * trace / 4 - det));
+
+                const eig1 = trace / 2 + discriminant;
+                const eig2 = trace / 2 - discriminant;
+
+                const maxEig = Math.max(eig1, eig2);
+                const minEig = Math.min(eig1, eig2);
+
+                if (maxEig === 0) return true;
+                return (minEig / maxEig) < 1e-4;
+            }
+        }
+
+        // ============================================
+        // REPORT GENERATOR
+        // ============================================
+
+        function generateMarkdownReport(engine, method) {
+            const hp = engine.horizontalParams;
+            const vp = engine.verticalParams;
+            const residuals = engine.residuals;
+
+            // Calculate derived values
+            const scale = Math.sqrt(hp.a * hp.a + hp.b * hp.b);
+            const rotationRad = Math.atan2(hp.b, hp.a);
+            const rotationDeg = rotationRad * 180 / Math.PI;
+
+            // Convert to DMS
+            const rotD = Math.floor(Math.abs(rotationDeg));
+            const rotM = Math.floor((Math.abs(rotationDeg) - rotD) * 60);
+            const rotS = ((Math.abs(rotationDeg) - rotD - rotM / 60) * 3600).toFixed(1);
+            const rotSign = rotationDeg < 0 ? '-' : '';
+            const rotDMS = `${rotSign}${rotD}° ${rotM}' ${rotS}"`;
+
+            // Statistics
+            const errors_h = residuals.map(r => Math.sqrt(r.dE * r.dE + r.dN * r.dN));
+            const worstIdx = errors_h.indexOf(Math.max(...errors_h));
+            const bestIdx = errors_h.indexOf(Math.min(...errors_h));
+
+            const stdE = Math.sqrt(residuals.reduce((s, r) => s + r.dE * r.dE, 0) / residuals.length);
+            const stdN = Math.sqrt(residuals.reduce((s, r) => s + r.dN * r.dN, 0) / residuals.length);
+            const stdH = Math.sqrt(residuals.reduce((s, r) => s + r.dH * r.dH, 0) / residuals.length);
+
+            // Percentile 99
+            const sortedErrors = [...errors_h].sort((a, b) => a - b);
+            const p99Idx = Math.floor(sortedErrors.length * 0.99);
+            const p99 = sortedErrors[Math.min(p99Idx, sortedErrors.length - 1)];
+
+            // Date
+            const now = new Date().toLocaleString('es-CL', { timeZone: 'America/Santiago' });
+
+            let report = `# Site Calibration Report
+
+Report generated on: ${now}
+
+## Calibration Method: ${method.toUpperCase()}
+
+### Ajuste Horizontal (2D)
+
+- **Factor de Escala (a):** \`${hp.a.toFixed(6)}\`
+- **Termino de Rotacion (b):** \`${hp.b.toFixed(6)}\`
+- **Traslacion Este:** \`${hp.tE.toFixed(3)} m\`
+- **Traslacion Norte:** \`${hp.tN.toFixed(3)} m\`
+- **Escala Implicita:** \`${scale.toFixed(8)}\`
+- **Rotacion Implicita:** \`${rotDMS}\`
+
+### Ajuste Vertical (1D)
+
+- **Desplazamiento Vertical (Shift):** \`${vp.vertical_shift.toFixed(3)} m\`
+- **Inclinacion Norte:** \`${(vp.slope_north * 1e6).toFixed(2)} ppm\`
+- **Inclinacion Este:** \`${(vp.slope_east * 1e6).toFixed(2)} ppm\`
+- **Centroide (N, E):** \`(${vp.centroid_north.toFixed(3)}, ${vp.centroid_east.toFixed(3)})\`
+
+### Residuals (mm)
+
+| Point | dE (mm) | dN (mm) | dH (mm) |
+|-------|---------|---------|---------|
+`;
+
+            residuals.forEach(r => {
+                report += `| ${r.Point} | ${(r.dE * 1000).toFixed(1)} | ${(r.dN * 1000).toFixed(1)} | ${(r.dH * 1000).toFixed(1)} |\n`;
+            });
+
+            report += `
+### Statistics
+
+- **Worst Point:** \`${residuals[worstIdx].Point}\` (Error: ${(errors_h[worstIdx] * 1000).toFixed(1)} mm)
+- **Best Point:** \`${residuals[bestIdx].Point}\` (Error: ${(errors_h[bestIdx] * 1000).toFixed(1)} mm)
+- **Standard Deviations (mm):**
+  - \`dE\`: ${(stdE * 1000).toFixed(1)} mm
+  - \`dN\`: ${(stdN * 1000).toFixed(1)} mm
+  - \`dH\`: ${(stdH * 1000).toFixed(1)} mm
+- **99th Percentile of Horizontal Errors:** ${(p99 * 1000).toFixed(1)} mm
+`;
+
+            return report;
+        }
+
+        // ============================================
+        // UI UPDATE FUNCTIONS
+        // ============================================
+
+        function showAlert(message, type = 'danger') {
+            const alertSection = document.getElementById('alertSection');
+            const alertContent = document.getElementById('alertContent');
+
+            alertContent.className = `alert alert-${type}`;
+            alertContent.innerHTML = `<i class="bi bi-exclamation-triangle me-2"></i>${message}`;
+            alertSection.style.display = 'block';
+
+            setTimeout(() => {
+                alertSection.style.display = 'none';
+            }, 5000);
+        }
+
+        function displayResults(engine, method) {
+            const hp = engine.horizontalParams;
+            const vp = engine.verticalParams;
+            const residuals = engine.residuals;
+
+            // Horizontal params
+            document.getElementById('metricA').textContent = hp.a.toFixed(7);
+            document.getElementById('metricB').textContent = hp.b.toFixed(7);
+            document.getElementById('metricTE').textContent = `${hp.tE.toFixed(3)} m`;
+            document.getElementById('metricTN').textContent = `${hp.tN.toFixed(3)} m`;
+
+            // Derived
+            const scale = Math.sqrt(hp.a * hp.a + hp.b * hp.b);
+            const rotationRad = Math.atan2(hp.b, hp.a);
+            const rotationDeg = rotationRad * 180 / Math.PI;
+            const rotD = Math.floor(Math.abs(rotationDeg));
+            const rotM = Math.floor((Math.abs(rotationDeg) - rotD) * 60);
+            const rotS = ((Math.abs(rotationDeg) - rotD - rotM / 60) * 3600).toFixed(1);
+            const rotSign = rotationDeg < 0 ? '-' : '';
+
+            document.getElementById('metricScale').textContent = scale.toFixed(8);
+            document.getElementById('metricRotation').textContent = `${rotSign}${rotD}° ${rotM}' ${rotS}"`;
+
+            // Vertical params
+            document.getElementById('metricShift').textContent = `${vp.vertical_shift.toFixed(3)} m`;
+            document.getElementById('metricSlopeN').textContent = (vp.slope_north * 1e6).toFixed(2);
+            document.getElementById('metricSlopeE').textContent = (vp.slope_east * 1e6).toFixed(2);
+            document.getElementById('metricCentroid').textContent = `(${vp.centroid_north.toFixed(0)}, ${vp.centroid_east.toFixed(0)})`;
+
+            // Residuals table
+            const tbody = document.getElementById('residualsBody');
+            tbody.innerHTML = '';
+
+            residuals.forEach(r => {
+                const errorH = Math.sqrt(r.dE * r.dE + r.dN * r.dN);
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${r.Point}</td>
+                    <td>${(r.dE * 1000).toFixed(1)}</td>
+                    <td>${(r.dN * 1000).toFixed(1)}</td>
+                    <td>${(r.dH * 1000).toFixed(1)}</td>
+                    <td>${(errorH * 1000).toFixed(1)}</td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            // Statistics
+            const errors_h = residuals.map(r => Math.sqrt(r.dE * r.dE + r.dN * r.dN));
+            const worstIdx = errors_h.indexOf(Math.max(...errors_h));
+            const bestIdx = errors_h.indexOf(Math.min(...errors_h));
+
+            const stdE = Math.sqrt(residuals.reduce((s, r) => s + r.dE * r.dE, 0) / residuals.length);
+            const stdN = Math.sqrt(residuals.reduce((s, r) => s + r.dN * r.dN, 0) / residuals.length);
+            const stdH = Math.sqrt(residuals.reduce((s, r) => s + r.dH * r.dH, 0) / residuals.length);
+
+            const sortedErrors = [...errors_h].sort((a, b) => a - b);
+            const p99Idx = Math.floor(sortedErrors.length * 0.99);
+            const p99 = sortedErrors[Math.min(p99Idx, sortedErrors.length - 1)];
+
+            document.getElementById('statWorst').innerHTML = `${residuals[worstIdx].Point}<br><small>${(errors_h[worstIdx] * 1000).toFixed(1)} mm</small>`;
+            document.getElementById('statBest').innerHTML = `${residuals[bestIdx].Point}<br><small>${(errors_h[bestIdx] * 1000).toFixed(1)} mm</small>`;
+            document.getElementById('statStdDev').innerHTML = `E: ${(stdE * 1000).toFixed(1)}<br>N: ${(stdN * 1000).toFixed(1)}<br>H: ${(stdH * 1000).toFixed(1)}`;
+            document.getElementById('statP99').textContent = `${(p99 * 1000).toFixed(1)} mm`;
+
+            // Markdown report
+            const report = generateMarkdownReport(engine, method);
+            document.getElementById('markdownReport').textContent = report;
+
+            // Show results section
+            document.getElementById('resultsSection').style.display = 'block';
+
+            // Scroll to results
+            document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // ============================================
+        // EVENT HANDLERS
+        // ============================================
+
+        document.getElementById('globalFile').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const hasHeader = document.getElementById('globalHasHeader').checked;
+
+            try {
+                const result = await parseCSV(file, hasHeader);
+                globalData = result.data;
+
+                renderPreviewTable(globalData, 'globalPreview');
+
+                const columns = Object.keys(globalData[0] || {});
+                populateColumnSelects(columns, ['gPoint', 'gLat', 'gLon', 'gHeight'], [0, 1, 2, 3]);
+
+                document.getElementById('globalMapping').style.display = 'block';
+            } catch (error) {
+                showAlert('Error al leer archivo global: ' + error.message);
+            }
+        });
+
+        document.getElementById('localFile').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const hasHeader = document.getElementById('localHasHeader').checked;
+
+            try {
+                const result = await parseCSV(file, hasHeader);
+                localData = result.data;
+
+                renderPreviewTable(localData, 'localPreview');
+
+                const columns = Object.keys(localData[0] || {});
+                populateColumnSelects(columns, ['lPoint', 'lEasting', 'lNorthing', 'lElevation'], [0, 1, 2, 3]);
+
+                document.getElementById('localMapping').style.display = 'block';
+
+                // Update chart after a small delay
+                setTimeout(updateGeometryChart, 100);
+            } catch (error) {
+                showAlert('Error al leer archivo local: ' + error.message);
+            }
+        });
+
+        // Update chart when column mapping changes
+        ['lEasting', 'lNorthing', 'lPoint'].forEach(id => {
+            document.getElementById(id).addEventListener('change', updateGeometryChart);
+        });
+
+        // Toggle LTM params
+        document.getElementById('projectionMethod').addEventListener('change', (e) => {
+            const ltmParams = document.getElementById('ltmParams');
+            ltmParams.style.display = e.target.value === 'ltm' ? 'block' : 'none';
+        });
+
+        // Copy report button
+        document.getElementById('copyReportBtn').addEventListener('click', () => {
+            const report = document.getElementById('markdownReport').textContent;
+            navigator.clipboard.writeText(report).then(() => {
+                const btn = document.getElementById('copyReportBtn');
+                btn.innerHTML = '<i class="bi bi-check me-1"></i> Copiado!';
+                setTimeout(() => {
+                    btn.innerHTML = '<i class="bi bi-clipboard me-1"></i> Copiar';
+                }, 2000);
+            });
+        });
+
+        // Calculate button
+        document.getElementById('calculateBtn').addEventListener('click', async () => {
+            // Validate inputs
+            if (!globalData || !localData) {
+                showAlert('Por favor sube ambos archivos CSV (Global y Local).');
+                return;
+            }
+
+            // Show spinner
+            document.getElementById('spinner').style.display = 'flex';
+            document.getElementById('resultsSection').style.display = 'none';
+
+            // Small delay to allow UI update
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            try {
+                // Get column mappings
+                const gPoint = document.getElementById('gPoint').value;
+                const gLat = document.getElementById('gLat').value;
+                const gLon = document.getElementById('gLon').value;
+                const gHeight = document.getElementById('gHeight').value;
+
+                const lPoint = document.getElementById('lPoint').value;
+                const lEasting = document.getElementById('lEasting').value;
+                const lNorthing = document.getElementById('lNorthing').value;
+                const lElevation = document.getElementById('lElevation').value;
+
+                // Standardize global data
+                const standardGlobal = globalData.map(row => ({
+                    Point: String(row[gPoint]),
+                    Latitude: parseFloat(row[gLat]),
+                    Longitude: parseFloat(row[gLon]),
+                    EllipsoidalHeight: parseFloat(row[gHeight])
+                })).filter(r => !isNaN(r.Latitude) && !isNaN(r.Longitude));
+
+                // Standardize local data
+                const standardLocal = localData.map(row => ({
+                    Point: String(row[lPoint]),
+                    Easting: parseFloat(row[lEasting]),
+                    Northing: parseFloat(row[lNorthing]),
+                    Elevation: parseFloat(row[lElevation])
+                })).filter(r => !isNaN(r.Easting) && !isNaN(r.Northing));
+
+                // Get projection method and params
+                const method = document.getElementById('projectionMethod').value;
+                const params = {
+                    centralMeridian: parseFloat(document.getElementById('centralMeridian').value),
+                    latOrigin: parseFloat(document.getElementById('latOrigin').value),
+                    scaleFactor: parseFloat(document.getElementById('scaleFactor').value),
+                    falseEasting: parseFloat(document.getElementById('falseEasting').value),
+                    falseNorthing: parseFloat(document.getElementById('falseNorthing').value)
+                };
+
+                // Project global coordinates
+                const projectedGlobal = ProjectionEngine.project(standardGlobal, method, params);
+
+                // Run calibration
+                const engine = new CalibrationEngine();
+                engine.train(standardLocal, projectedGlobal);
+
+                // Save calibration state for transform
+                calibratedEngine = engine;
+                calibrationMethod = method;
+                calibrationParams = params;
+
+                // Display results
+                displayResults(engine, method);
+
+            } catch (error) {
+                showAlert(error.message);
+                console.error(error);
+            } finally {
+                document.getElementById('spinner').style.display = 'none';
+            }
+        });
+
+        // Transform file upload
+        let transformData = null;
+        let lastTransformResults = null;
+
+        document.getElementById('transformFile').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const hasHeader = document.getElementById('transformHasHeader').checked;
+
+            try {
+                const result = await parseCSV(file, hasHeader);
+                transformData = result.data;
+
+                renderPreviewTable(transformData, 'transformPreview');
+
+                const columns = Object.keys(transformData[0] || {});
+                populateColumnSelects(columns, ['tPoint', 'tLat', 'tLon', 'tHeight'], [0, 1, 2, 3]);
+
+                document.getElementById('transformMapping').style.display = 'block';
+                document.getElementById('transformResults').style.display = 'none';
+            } catch (error) {
+                showAlert('Error al leer archivo de puntos nuevos: ' + error.message);
+            }
+        });
+
+        // Transform button
+        document.getElementById('transformBtn').addEventListener('click', () => {
+            if (!calibratedEngine) {
+                showAlert('No hay calibracion activa. Primero ejecuta la calibracion.');
+                return;
+            }
+            if (!transformData) {
+                showAlert('No hay datos de puntos nuevos cargados.');
+                return;
+            }
+
+            try {
+                const tPoint = document.getElementById('tPoint').value;
+                const tLat = document.getElementById('tLat').value;
+                const tLon = document.getElementById('tLon').value;
+                const tHeight = document.getElementById('tHeight').value;
+
+                // Standardize
+                const standardNew = transformData.map(row => ({
+                    Point: String(row[tPoint]),
+                    Latitude: parseFloat(row[tLat]),
+                    Longitude: parseFloat(row[tLon]),
+                    EllipsoidalHeight: parseFloat(row[tHeight])
+                })).filter(r => !isNaN(r.Latitude) && !isNaN(r.Longitude));
+
+                // Project using same method/params as calibration
+                const projected = ProjectionEngine.project(standardNew, calibrationMethod, calibrationParams);
+
+                // Transform
+                const results = calibratedEngine.transform(projected);
+                lastTransformResults = results;
+
+                // Display results table
+                const tbody = document.getElementById('transformBody');
+                tbody.innerHTML = '';
+                results.forEach(r => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${r.Point}</td>
+                        <td>${r.Easting.toFixed(4)}</td>
+                        <td>${r.Northing.toFixed(4)}</td>
+                        <td>${r.Elevation.toFixed(4)}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                document.getElementById('transformResults').style.display = 'block';
+            } catch (error) {
+                showAlert('Error al transformar: ' + error.message);
+                console.error(error);
+            }
+        });
+
+        // Download transform CSV
+        document.getElementById('downloadTransformBtn').addEventListener('click', () => {
+            if (!lastTransformResults || lastTransformResults.length === 0) return;
+
+            const header = 'Point,Easting,Northing,Elevation\n';
+            const rows = lastTransformResults.map(r =>
+                `${r.Point},${r.Easting.toFixed(4)},${r.Northing.toFixed(4)},${r.Elevation.toFixed(4)}`
+            ).join('\n');
+
+            const blob = new Blob([header + rows], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'transformed_points.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // Initialize
+        console.log('Site Calibration Pro - JavaScript Edition loaded');
+    </script>
+</body>
+</html>

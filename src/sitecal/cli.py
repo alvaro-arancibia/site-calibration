@@ -32,6 +32,7 @@ def local2global(
     local_csv: Path = typer.Option(..., "--local-csv", exists=True, readable=True, help="CSV with local coordinates (Point,Easting,Northing,h_local)"),
     output_report: Path = typer.Option("calibration_report.md", help="Output report in Markdown format."),
     output_csv: Optional[Path] = typer.Option(None, help="Output CSV with transformed coordinates."),
+    transform_csv: Optional[Path] = typer.Option(None, "--transform-csv", exists=True, readable=True, help="CSV with new GPS points (Point,Lat,Lon,h) to transform using the calibration."),
     method: CalibrationMethod = typer.Option("default", "--method", help="Calibration method"),
     # LTM parameters
     central_meridian: Optional[float] = typer.Option(None, help="LTM Central Meridian"),
@@ -45,7 +46,7 @@ def local2global(
     Performs a site calibration by projecting global coordinates and fitting them
     to a local plane coordinate system.
     """
-    
+
     # Read data
     df_global = read_csv_to_dataframe(global_csv)
     df_local = read_csv_to_dataframe(local_csv)
@@ -71,19 +72,28 @@ def local2global(
     # --- Calibration Step (2D Similarity) ---
     calibration = CalibrationFactory.create(method.value)
     calibration.train(df_local, df_global_proj)
-    
+
     typer.echo("Calibration training completed.")
 
     # --- Reporting Step ---
     generate_markdown_report(calibration, output_report, method.value)
     typer.echo(f"Calibration report generated at: {output_report}")
-    
-    # --- Transformation & Output Step ---
-    if output_csv:
+
+    # --- Transformation & Output Step (control points) ---
+    if output_csv and not transform_csv:
         df_to_transform = df_global_proj
         transformed_df = calibration.transform(df_to_transform)
         transformed_df.to_csv(output_csv, index=False)
         typer.echo(f"Transformed coordinates saved to: {output_csv}")
+
+    # --- Transform New Points Step ---
+    if transform_csv:
+        df_new = read_csv_to_dataframe(transform_csv)
+        df_new_proj = projection.project(df_new)
+        transformed_new = calibration.transform(df_new_proj)
+        out_path = output_csv if output_csv else Path("transformed_output.csv")
+        transformed_new.to_csv(out_path, index=False)
+        typer.echo(f"Transformed new points saved to: {out_path}")
 
 
 if __name__ == "__main__":
