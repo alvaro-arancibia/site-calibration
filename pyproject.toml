@@ -18,9 +18,9 @@ dependencies = [
   "typer",
   "rich",
   "tabulate",
-  "tabulate",
   "pytz",
   "streamlit",
+  "pytest",
 ]
 
 [project.scripts]

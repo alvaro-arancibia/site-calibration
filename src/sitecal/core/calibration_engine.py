@@ -59,11 +59,11 @@ class Similarity2D(Calibration):
         a = params_ab[0]
         b = params_ab[1]
         
-        # Calculate translations
-        tE = E_c - a * x_c + b * y_c
-        tN = N_c - b * x_c - a * y_c
-
-        self.horizontal_params = {"a": a, "b": b, "tE": tE, "tN": tN}
+        self.horizontal_params = {
+            "a": a, "b": b,
+            "x_c": x_c, "y_c": y_c,
+            "E_c": E_c, "N_c": N_c
+        }
 
         # --- Vertical (Inclined Plane) ---
         # Z_error = Z_global - Z_local
@@ -125,8 +125,10 @@ class Similarity2D(Calibration):
         # Horizontal
         a = self.horizontal_params["a"]
         b = self.horizontal_params["b"]
-        tE = self.horizontal_params["tE"]
-        tN = self.horizontal_params["tN"]
+        x_c = self.horizontal_params["x_c"]
+        y_c = self.horizontal_params["y_c"]
+        E_c = self.horizontal_params["E_c"]
+        N_c = self.horizontal_params["N_c"]
 
         # Vertical
         C = self.vertical_params["vertical_shift"]
@@ -153,8 +155,8 @@ class Similarity2D(Calibration):
              h_input = np.zeros(len(df))
 
         # Apply 2D Sim
-        E_trans = a * x - b * y + tE
-        N_trans = b * x + a * y + tN
+        E_trans = a * (x - x_c) - b * (y - y_c) + E_c
+        N_trans = b * (x - x_c) + a * (y - y_c) + N_c
         
         # Apply Vertical Adjustment
         # We need N_local and E_local for the plane. 
