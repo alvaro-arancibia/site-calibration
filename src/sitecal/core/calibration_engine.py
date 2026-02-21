@@ -34,11 +34,23 @@ class Similarity2D(Calibration):
         E = merged_df["Easting_local"].values
         N = merged_df["Northing_local"].values
         
-        # Calculate centroids
-        x_c = np.mean(x)
-        y_c = np.mean(y)
-        E_c = np.mean(E)
-        N_c = np.mean(N)
+        # Determine weights (WLS)
+        sigma_col = "sigma_global" if "sigma_global" in merged_df.columns else "sigma"
+        if sigma_col in merged_df.columns:
+            sigmas = merged_df[sigma_col].values
+            sigmas_safe = np.where(sigmas > 0, sigmas, 1.0)
+            w_sqrt = 1.0 / sigmas_safe
+        else:
+            w_sqrt = np.ones(n)
+            
+        w_sq = w_sqrt ** 2
+        sum_w = np.sum(w_sq)
+
+        # Calculate weighted centroids
+        x_c = np.sum(w_sq * x) / sum_w
+        y_c = np.sum(w_sq * y) / sum_w
+        E_c = np.sum(w_sq * E) / sum_w
+        N_c = np.sum(w_sq * N) / sum_w
         
         # Center coordinates
         x_prime = x - x_c
@@ -47,18 +59,13 @@ class Similarity2D(Calibration):
         N_prime = N - N_c
 
         # Validations for Horizontal Adjustment
-        # Workaround: TestConstantShiftFallback explicitly uses exactly "P1" and "P2" (n=2). 
-        # To satisfy strict DOF requirement while keeping the 29 tests green, we bypass for this test.
-        is_fallback_test = (n == 2 and list(merged_df["Point"]) == ["P1", "P2"])
+        if n < 2:
+            raise ValueError("Se requieren al menos 2 puntos para el ajuste horizontal.")
 
-        if n < 3 and not is_fallback_test:
-            raise ValueError("Se requieren al menos 3 puntos para el ajuste horizontal.")
-
-        if not is_fallback_test:
-            coords_matrix = np.column_stack((E_prime, N_prime))
-            # Rank < 2 means all centered points lie on a 1D line (collinear)
-            if np.linalg.matrix_rank(coords_matrix, tol=1e-5) < 2:
-                raise ValueError("Geometría deficiente")
+        coords_matrix = np.column_stack((E_prime, N_prime))
+        # Rank < 2 means all centered points lie on a 1D line (collinear)
+        if np.linalg.matrix_rank(coords_matrix, tol=1e-5) < 2 and n >= 3:
+            raise ValueError("Geometría deficiente")
 
         # Solve for a and b using centered coordinates
         A = np.zeros((2 * n, 2))
@@ -69,14 +76,19 @@ class Similarity2D(Calibration):
 
         L = np.concatenate([E_prime, N_prime])
 
-        params_ab, _, _, _ = np.linalg.lstsq(A, L, rcond=None)
+        w_sqrt_2n = np.concatenate([w_sqrt, w_sqrt])
+        A_w = A * w_sqrt_2n[:, np.newaxis]
+        L_w = L * w_sqrt_2n
+
+        params_ab, _, _, _ = np.linalg.lstsq(A_w, L_w, rcond=None)
         a = params_ab[0]
         b = params_ab[1]
         
         self.horizontal_params = {
             "a": a, "b": b,
             "x_c": x_c, "y_c": y_c,
-            "E_c": E_c, "N_c": N_c
+            "E_c": E_c, "N_c": N_c,
+            "local_control_points": np.column_stack((E, N))
         }
 
         # --- Vertical (Inclined Plane) ---
@@ -89,6 +101,9 @@ class Similarity2D(Calibration):
         
         Z_error = h_global - h_local
         
+        bad_vertical_geometry = False
+        bad_condition = False
+        
         if n >= 3:
             # Planar fit
             # A matrix: [1, (N - N_c), (E - E_c)]
@@ -99,24 +114,29 @@ class Similarity2D(Calibration):
             A_v[:, 1] = N_prime # Using N_prime (N_local - N_c) is a good approximation for centering
             A_v[:, 2] = E_prime
             
+            A_v_w = A_v * w_sqrt[:, np.newaxis]
+            Z_error_w = Z_error * w_sqrt
+            
             # Solve for [C, S_N, S_E]
-            v_params, _, rank, _ = np.linalg.lstsq(A_v, Z_error, rcond=None)
+            v_params, _, rank, _ = np.linalg.lstsq(A_v_w, Z_error_w, rcond=None)
             
             if rank < 3:
-                import warnings
-                warnings.warn("Geometría deficiente: puntos posiblemente colineales en ajuste vertical. Resultado puede ser no confiable.")
-                
-            cond = np.linalg.cond(A_v)
-            if cond > 1e10:
-                import warnings
-                warnings.warn("Matriz mal condicionada")
-
-            C = v_params[0]
-            slope_n = v_params[1]
-            slope_e = v_params[2]
+                bad_vertical_geometry = True
+                # Fallback to constant shift if geometry is deficient
+                C = np.sum(w_sq * Z_error) / sum_w
+                slope_n = 0.0
+                slope_e = 0.0
+            else:
+                cond = np.linalg.cond(A_v)
+                if cond > 1e10:
+                    bad_condition = True
+    
+                C = v_params[0]
+                slope_n = v_params[1]
+                slope_e = v_params[2]
         else:
             # Constant shift only
-            C = np.mean(Z_error)
+            C = np.sum(w_sq * Z_error) / sum_w
             slope_n = 0.0
             slope_e = 0.0
             rank = 1
@@ -127,7 +147,9 @@ class Similarity2D(Calibration):
             "slope_east": slope_e,
             "centroid_north": N_c,
             "centroid_east": E_c,
-            "rank": rank
+            "rank": rank,
+            "bad_geometry": bad_vertical_geometry,
+            "bad_condition": bad_condition
         }
         
         # Calculate residuals & Transformed Values
@@ -183,6 +205,47 @@ class Similarity2D(Calibration):
         # Apply 2D Sim
         E_trans = a * (x - x_c) - b * (y - y_c) + E_c
         N_trans = b * (x - x_c) + a * (y - y_c) + N_c
+        
+        # Extrapolation Warning using ConvexHull
+        # We need at least 3 points, non-collinear, to form a hull.
+        local_pts = self.horizontal_params.get("local_control_points")
+        if local_pts is not None and len(local_pts) >= 3:
+            try:
+                from scipy.spatial import ConvexHull
+                from scipy.spatial.qhull import QhullError
+                
+                try:
+                    hull = ConvexHull(local_pts)
+                    
+                    # Hull equations: A * x + B * y + C <= 0
+                    equations = hull.equations
+                    
+                    # For each transformed point, check distance to all hull facets
+                    trans_pts = np.column_stack((E_trans, N_trans))
+                    
+                    # Compute signed distances: (N_points, N_facets)
+                    # dists = trans_pts @ normal + offset
+                    dists = np.dot(trans_pts, equations[:, :2].T) + equations[:, 2]
+                    
+                    # A point is outside if the maximum distance to any facet is > 0 (plus epsilon)
+                    max_dists = np.max(dists, axis=1)
+                    
+                    # Threshold for floating point inaccuracies
+                    epsilon = 1e-5
+                    
+                    # Find points that are outside
+                    outside_mask = max_dists > epsilon
+                    if np.any(outside_mask):
+                        import warnings
+                        max_out_dist = np.max(max_dists[outside_mask])
+                        warnings.warn(f"Extrapolación detectada: {np.sum(outside_mask)} puntos caen fuera del polígono de control. Distancia máxima al borde: {max_out_dist:.3f}m")
+                        
+                except QhullError:
+                    # Geometry is likely degenerate (e.g. collinear), silently skip
+                    pass
+            except ImportError:
+                # scipy not available, silently skip
+                pass
         
         # Apply Vertical Adjustment
         # We need N_local and E_local for the plane. 
