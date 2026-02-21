@@ -84,6 +84,49 @@ class Similarity2D(Calibration):
         a = params_ab[0]
         b = params_ab[1]
         
+        # --- Baarda Data Snooping (Horizontal) ---
+        dof_h = 2 * n - 4
+        outlier_flags_h = np.zeros(n, dtype=bool)
+        
+        if dof_h > 0:
+            # Reconstruct V (residuals) for horizontal
+            V_h = A_w @ params_ab - L_w
+            
+            # Varianza a posteriori
+            sigma0_sq_h = np.dot(V_h, V_h) / dof_h
+            
+            if sigma0_sq_h > 1e-12:  # Avoid division by zero if perfect fit
+                # N = A_w^T * A_w
+                N_mat_h = A_w.T @ A_w
+                
+                try:
+                    N_inv_h = np.linalg.inv(N_mat_h)
+                    # Q_vv = I - A_w * N^-1 * A_w^T  (assuming W is already in A_w)
+                    # We only need the diagonal of Q_vv
+                    # diag(A_w * N^-1 * A_w^T)
+                    diag_Q_hat = np.sum((A_w @ N_inv_h) * A_w, axis=1)
+                    diag_Q_vv = 1.0 - diag_Q_hat
+                    
+                    # W_i statistic
+                    # V returns a 2n vector (Easting array, then Northing array)
+                    # We combine them per point to flag the point as outlier
+                    # w_i = v_i / (sigma0 * sqrt(q_vvi))
+                    
+                    # Prevent division by zero or negative sqrt for q_vv
+                    diag_Q_vv_safe = np.maximum(diag_Q_vv, 1e-12)
+                    w_stat = V_h / (np.sqrt(sigma0_sq_h) * np.sqrt(diag_Q_vv_safe))
+                    
+                    # Combine Easting and Northing statistics per point (max of absolute values)
+                    w_stat_E = w_stat[:n]
+                    w_stat_N = w_stat[n:]
+                    max_w_stat = np.maximum(np.abs(w_stat_E), np.abs(w_stat_N))
+                    
+                    # Pope's Tau or critical value. We use Baarda's canonical 3.0 or 3.29
+                    critical_value = 3.0
+                    outlier_flags_h = max_w_stat > critical_value
+                except np.linalg.LinAlgError:
+                    pass
+        
         self.horizontal_params = {
             "a": a, "b": b,
             "x_c": x_c, "y_c": y_c,
@@ -140,6 +183,34 @@ class Similarity2D(Calibration):
             slope_n = 0.0
             slope_e = 0.0
             rank = 1
+            A_v_w = np.ones((n, 1)) * w_sqrt[:, np.newaxis]
+            v_params = np.array([C])
+            Z_error_w = Z_error * w_sqrt
+            
+        # --- Baarda Data Snooping (Vertical) ---
+        # dof = n - (3 for plane, 1 for constant shift)
+        num_v_params = 3 if (n >= 3 and rank >= 3) else 1
+        dof_v = n - num_v_params
+        outlier_flags_v = np.zeros(n, dtype=bool)
+        
+        if dof_v > 0 and 'A_v_w' in locals():
+            V_v = A_v_w @ v_params - Z_error_w
+            sigma0_sq_v = np.dot(V_v, V_v) / dof_v
+            
+            if sigma0_sq_v > 1e-12:
+                N_mat_v = A_v_w.T @ A_v_w
+                try:
+                    N_inv_v = np.linalg.inv(N_mat_v)
+                    diag_Q_hat_v = np.sum((A_v_w @ N_inv_v) * A_v_w, axis=1)
+                    diag_Q_vv_v = 1.0 - diag_Q_hat_v
+                    
+                    diag_Q_vv_v_safe = np.maximum(diag_Q_vv_v, 1e-12)
+                    w_stat_v = V_v / (np.sqrt(sigma0_sq_v) * np.sqrt(diag_Q_vv_v_safe))
+                    
+                    critical_value = 3.0
+                    outlier_flags_v = np.abs(w_stat_v) > critical_value
+                except np.linalg.LinAlgError:
+                    pass
             
         self.vertical_params = {
             "vertical_shift": C,
@@ -158,7 +229,9 @@ class Similarity2D(Calibration):
             "Point": merged_df["Point"],
             "dE": transformed["Easting"] - merged_df["Easting_local"],
             "dN": transformed["Northing"] - merged_df["Northing_local"],
-            "dH": transformed["h"] - merged_df.get("Elevation", 0) - (merged_df.get("EllipsoidalHeight", 0) - merged_df.get("Elevation", 0)) 
+            "dH": transformed["h"] - merged_df.get("Elevation", 0) - (merged_df.get("EllipsoidalHeight", 0) - merged_df.get("Elevation", 0)), 
+            "outlier_horizontal": outlier_flags_h,
+            "outlier_vertical": outlier_flags_v
         })
         # dH = Transformed (Local Calc) - Expected Local (Elevation)
         # Transformed["h"] is the calculated Local Height.
