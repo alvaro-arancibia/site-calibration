@@ -33,6 +33,32 @@ class Similarity2D(Calibration):
         self.horizontal_params = None
         self.vertical_params = None
         self.residuals = None
+        self.proj_method = None
+        self.proj_params = {}
+
+    def get_crs_strings(self):
+        m = self.proj_method
+        p = self.proj_params
+        if m == "default":
+            lat_0 = p.get("lat_0", 0.0)
+            lon_0 = p.get("lon_0", 0.0)
+            proj = (f"+proj=tmerc +lat_0={lat_0} +lon_0={lon_0} "
+                    f"+k=1.0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
+        elif m == "utm":
+            zone = p.get("utm_zone", 19)
+            south = p.get("is_south", True)
+            code = 32700 + zone if south else 32600 + zone
+            proj = f"EPSG:{code}"
+        elif m == "ltm":
+            proj = (f"+proj=tmerc +lat_0={p.get('latitude_of_origin', 0.0)} "
+                    f"+lon_0={p.get('central_meridian', -72.0)} "
+                    f"+k={p.get('scale_factor', 0.9996)} "
+                    f"+x_0={p.get('false_easting', 500000.0)} "
+                    f"+y_0={p.get('false_northing', 10000000.0)} "
+                    f"+ellps=WGS84 +datum=WGS84 +units=m +no_defs")
+        else:
+            proj = None
+        return "EPSG:4326", proj
 
     def train(self, df_local: pd.DataFrame, df_global: pd.DataFrame):
         """
@@ -256,12 +282,30 @@ class Similarity2D(Calibration):
         dZ = C + Sn * (N_in - Nc) + Se * (E_in - Ec)
         H_global = h_local + dZ
         
-        return pd.DataFrame({
+        df_out = {
             "Point": df["Point"] if "Point" in df.columns else np.arange(len(df)),
-            "Easting_global": x_global,
-            "Northing_global": y_global,
             "EllipsoidalHeight": H_global
-        })
+        }
+        
+        # Deproject with PyProj to obtain Lat/Lon
+        if self.proj_method:
+            from pyproj import CRS, Transformer
+            src_str, dst_str = self.get_crs_strings()
+            if dst_str:
+                src_crs = CRS(dst_str)
+                dst_crs = CRS(src_str)
+                transformer = Transformer.from_crs(src_crs, dst_crs, always_xy=True)
+                lon, lat = transformer.transform(x_global, y_global)
+                df_out["Latitude"] = lat
+                df_out["Longitude"] = lon
+            else:
+                df_out["Easting_global"] = x_global
+                df_out["Northing_global"] = y_global
+        else:
+            df_out["Easting_global"] = x_global
+            df_out["Northing_global"] = y_global
+        
+        return pd.DataFrame(df_out)
 
     def save(self) -> str:
         if self.horizontal_params is None or self.vertical_params is None:
@@ -270,6 +314,10 @@ class Similarity2D(Calibration):
         data = {
             "method": "similarity2d",
             "timestamp": datetime.now().isoformat(),
+            "projection": {
+                "method": self.proj_method,
+                "params": self.proj_params
+            },
             "parameters": {
                 "horizontal": self.horizontal_params,
                 "vertical": self.vertical_params
@@ -284,9 +332,13 @@ class Similarity2D(Calibration):
             raise ValueError(f"Invalid method in sitecal file: {data.get('method')}")
             
         params = data.get("parameters", {})
+        proj_data = data.get("projection", {})
+        
         instance = cls()
         instance.horizontal_params = params.get("horizontal")
         instance.vertical_params = params.get("vertical")
+        instance.proj_method = proj_data.get("method")
+        instance.proj_params = proj_data.get("params", {})
         
         if not instance.horizontal_params or not instance.vertical_params:
             raise ValueError("Missing parameters in the loaded model.")

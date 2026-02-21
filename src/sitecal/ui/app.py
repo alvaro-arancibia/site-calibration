@@ -156,6 +156,22 @@ def main():
                 import warnings
                 engine = Similarity2D()
                 
+                # Capture accurate parameters for serialization
+                engine.proj_method = method.lower()
+                adj_params = proj_params.copy()
+                if engine.proj_method == "default":
+                    adj_params["lat_0"] = float(df_g_ready.iloc[0]["Latitude"])
+                    adj_params["lon_0"] = float(df_g_ready.iloc[0]["Longitude"])
+                elif engine.proj_method == "utm":
+                    lon_mean = df_g_ready["Longitude"].mean()
+                    utm_zone = int((lon_mean + 180) / 6) + 1
+                    is_south = df_g_ready["Latitude"].mean() < 0
+                    adj_params["utm_zone"] = utm_zone
+                    adj_params["is_south"] = is_south
+                elif engine.proj_method == "ltm":
+                    adj_params["latitude_of_origin"] = 0.0
+                engine.proj_params = adj_params
+                
                 with warnings.catch_warnings(record=True) as w:
                     warnings.simplefilter("always")
                     engine.train(df_l_ready, df_g_proj)
