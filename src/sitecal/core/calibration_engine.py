@@ -1,3 +1,5 @@
+import json
+from datetime import datetime
 from abc import ABC, abstractmethod
 import numpy as np
 import pandas as pd
@@ -12,6 +14,17 @@ class Calibration(ABC):
 
     @abstractmethod
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        pass
+
+    @abstractmethod
+    def save(self) -> str:
+        """Serializes the calibrated model to a JSON string."""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def load(cls, json_str: str) -> 'Calibration':
+        """Deserializes a JSON string into a Calibration model."""
         pass
 
 
@@ -198,6 +211,87 @@ class Similarity2D(Calibration):
             "Northing": N_trans,
             "h": H_trans
         })
+
+    def transform_inverse(self, df: pd.DataFrame) -> pd.DataFrame:
+        if self.horizontal_params is None or self.vertical_params is None:
+            raise RuntimeError("The calibration model has not been trained.")
+        
+        # Horizontal
+        a = self.horizontal_params["a"]
+        b = self.horizontal_params["b"]
+        x_c = self.horizontal_params["x_c"]
+        y_c = self.horizontal_params["y_c"]
+        E_c = self.horizontal_params["E_c"]
+        N_c = self.horizontal_params["N_c"]
+
+        # Vertical
+        C = self.vertical_params["vertical_shift"]
+        Sn = self.vertical_params["slope_north"]
+        Se = self.vertical_params["slope_east"]
+        Nc = self.vertical_params["centroid_north"]
+        Ec = self.vertical_params["centroid_east"]
+
+        # Handle column names dynamically
+        if "Easting_local" in df.columns:
+            E_in = df["Easting_local"].values
+            N_in = df["Northing_local"].values
+        else:
+            E_in = df.get("Easting", np.zeros(len(df))).values
+            N_in = df.get("Northing", np.zeros(len(df))).values
+            
+        if "Elevation" in df.columns:
+            h_local = df["Elevation"].values
+        elif "h" in df.columns:
+            h_local = df["h"].values
+        else:
+            h_local = np.zeros(len(df))
+
+        scale_sq = a**2 + b**2
+        
+        # Apply Inverse 2D Sim
+        x_global = x_c + (a * (E_in - E_c) + b * (N_in - N_c)) / scale_sq
+        y_global = y_c + (-b * (E_in - E_c) + a * (N_in - N_c)) / scale_sq
+        
+        # Apply Inverse Vertical
+        dZ = C + Sn * (N_in - Nc) + Se * (E_in - Ec)
+        H_global = h_local + dZ
+        
+        return pd.DataFrame({
+            "Point": df["Point"] if "Point" in df.columns else np.arange(len(df)),
+            "Easting_global": x_global,
+            "Northing_global": y_global,
+            "EllipsoidalHeight": H_global
+        })
+
+    def save(self) -> str:
+        if self.horizontal_params is None or self.vertical_params is None:
+            raise RuntimeError("The calibration model has not been trained.")
+            
+        data = {
+            "method": "similarity2d",
+            "timestamp": datetime.now().isoformat(),
+            "parameters": {
+                "horizontal": self.horizontal_params,
+                "vertical": self.vertical_params
+            }
+        }
+        return json.dumps(data, indent=4)
+
+    @classmethod
+    def load(cls, json_str: str) -> 'Similarity2D':
+        data = json.loads(json_str)
+        if data.get("method") != "similarity2d":
+            raise ValueError(f"Invalid method in sitecal file: {data.get('method')}")
+            
+        params = data.get("parameters", {})
+        instance = cls()
+        instance.horizontal_params = params.get("horizontal")
+        instance.vertical_params = params.get("vertical")
+        
+        if not instance.horizontal_params or not instance.vertical_params:
+            raise ValueError("Missing parameters in the loaded model.")
+            
+        return instance
 
 
 

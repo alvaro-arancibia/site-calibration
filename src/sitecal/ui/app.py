@@ -190,10 +190,104 @@ def main():
                     "report": report_text
                 }
                 
+                st.session_state["cal_engine"] = engine
+                st.session_state["cal_result"] = result_data
+                
                 display_results(result_data)
+                
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.download_button(
+                    label="💾 Descargar Calibración (.sitecal)",
+                    data=engine.save(),
+                    file_name="calibracion.sitecal",
+                    mime="application/json",
+                    use_container_width=True
+                )
 
             except Exception as e:
                 st.error(f"Error Interno: {str(e)}")
+
+    # -------------------------------------------------------------
+    # TRANSFORMATION SECTION
+    # -------------------------------------------------------------
+    st.markdown("---")
+    st.header("Transformar Puntos")
+    st.markdown("Aplica una calibración existente a un nuevo conjunto de puntos.")
+    
+    # 1. Provide calibration model source
+    load_col, _ = st.columns(2)
+    with load_col:
+        st.subheader("Modelo de Calibración")
+        cal_file = st.file_uploader("Cargar Calibración (.sitecal)", type=["sitecal", "json"])
+        
+        loaded_engine = None
+        if cal_file:
+            try:
+                content = cal_file.read().decode('utf-8')
+                loaded_engine = Similarity2D.load(content)
+                st.success("✅ Modelo cargado desde archivo.")
+            except Exception as e:
+                st.error(f"Error cargando archivo: {str(e)}")
+        elif st.session_state.get("cal_engine") is not None:
+             loaded_engine = st.session_state["cal_engine"]
+             st.info("ℹ️ Usando el modelo de calibración calculado en la sesión actual.")
+        else:
+             st.warning("⚠️ Debes calcular una calibración arriba o subir un archivo `.sitecal`.")
+             
+    if loaded_engine is not None:
+        # 2. Upload Points
+        st.subheader("Puntos a Transformar")
+        trans_file = st.file_uploader("Subir CSV de Puntos", type=["csv"], key="trans_points")
+        
+        if trans_file:
+            trans_df = pd.read_csv(trans_file)
+            st.dataframe(trans_df.head(), use_container_width=True)
+            
+            direction = st.radio("Dirección de Transformación", ["Global -> Local", "Local -> Global"])
+            
+            # Map columns
+            tc = trans_df.columns.tolist()
+            t_id = st.selectbox("Point (ID)", tc, index=0, key="t_id")
+            if direction == "Global -> Local":
+                 t_x = st.selectbox("Easting Global / Longitude", tc, index=1 if len(tc)>1 else 0, key="t_g_e")
+                 t_y = st.selectbox("Northing Global / Latitude", tc, index=2 if len(tc)>2 else 0, key="t_g_n")
+                 t_z = st.selectbox("Ellipsoidal Height / h", tc, index=3 if len(tc)>3 else 0, key="t_g_h")
+            else:
+                 t_x = st.selectbox("Easting (Local)", tc, index=1 if len(tc)>1 else 0, key="t_l_e")
+                 t_y = st.selectbox("Northing (Local)", tc, index=2 if len(tc)>2 else 0, key="t_l_n")
+                 t_z = st.selectbox("Elevation (Local)", tc, index=3 if len(tc)>3 else 0, key="t_l_h")
+                 
+            if st.button("Aplicar Transformación", type="primary", key="btn_trans"):
+                 with st.spinner("Transformando..."):
+                      try:
+                          if direction == "Global -> Local":
+                              df_ready = trans_df.rename(columns={
+                                  t_id: "Point", t_x: "Easting_global", t_y: "Northing_global", t_z: "EllipsoidalHeight"
+                              })
+                          else:
+                              df_ready = trans_df.rename(columns={
+                                  t_id: "Point", t_x: "Easting_local", t_y: "Northing_local", t_z: "Elevation"
+                              })
+                              
+                          df_ready["Point"] = df_ready["Point"].astype(str)
+                          
+                          if direction == "Global -> Local":
+                              res_df = loaded_engine.transform(df_ready)
+                          else:
+                              res_df = loaded_engine.transform_inverse(df_ready)
+                              
+                          st.success("Transformación exitosa.")
+                          st.dataframe(res_df.head(), use_container_width=True)
+                          
+                          csv_data = res_df.to_csv(index=False).encode('utf-8')
+                          st.download_button(
+                              label="📥 Descargar Resultados CSV",
+                              data=csv_data,
+                              file_name="puntos_transformados.csv",
+                              mime="text/csv"
+                          )
+                      except Exception as e:
+                          st.error(f"Error transformando puntos: {str(e)}")
 
 def display_results(data):
     # 1. Calculated Parameters
