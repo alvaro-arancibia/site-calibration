@@ -57,8 +57,12 @@ class Similarity2D(Calibration):
             x, y, E, N, w_sq, sum_w, w_sqrt, n
         )
         
+        tE = E_c - a * x_c + b * y_c
+        tN = N_c - b * x_c - a * y_c
+        
         self.horizontal_params = HorizontalParams(
             a=a, b=b, x_c=x_c, y_c=y_c, E_c=E_c, N_c=N_c,
+            tE=tE, tN=tN,
             local_control_points=local_control_pts.tolist()
         ).model_dump()
 

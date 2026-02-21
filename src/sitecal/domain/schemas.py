@@ -48,6 +48,8 @@ class HorizontalParams(BaseModel):
     y_c: float
     E_c: float
     N_c: float
+    tE: float
+    tN: float
     local_control_points: List[List[float]]
 
 
