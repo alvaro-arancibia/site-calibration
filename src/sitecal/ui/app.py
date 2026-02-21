@@ -66,7 +66,15 @@ def main():
         if local_file:
             has_header_l = st.checkbox("Tiene encabezados", value=True, key="header_l")
             local_df = pd.read_csv(local_file, header=0 if has_header_l else None)
-            st.dataframe(local_df.head(), use_container_width=True)
+            
+            use_wls = st.checkbox("Ingresar precisión por punto (WLS)", value=False, key="use_wls")
+            if use_wls:
+                if "sigma" not in local_df.columns:
+                    local_df["sigma"] = 1.0  # Default to 1.0 m precision
+                st.caption("Edita la columna 'sigma' para aplicar pesos personalizados (WLS):")
+                local_df = st.data_editor(local_df, num_rows="dynamic", key="local_editor")
+            else:
+                st.dataframe(local_df.head(), use_container_width=True)
 
             st.markdown("##### Mapeo de Columnas")
             cols_l = local_df.columns.tolist()
@@ -119,9 +127,14 @@ def main():
                 # Ensure Point is string
                 df_g_ready["Point"] = df_g_ready["Point"].astype(str)
 
+                # Mapear las columnas que existen
+                cols_to_keep_l = ["Point", "Easting", "Northing", "Elevation"]
+                if "sigma" in local_df.columns and use_wls:
+                    cols_to_keep_l.append("sigma")
+                    
                 df_l_ready = local_df.rename(columns={
                     l_point: "Point", l_e: "Easting", l_n: "Northing", l_z: "Elevation"
-                })[["Point", "Easting", "Northing", "Elevation"]]
+                })[cols_to_keep_l]
                 df_l_ready["Point"] = df_l_ready["Point"].astype(str)
 
                 # 2. Projection
@@ -140,15 +153,31 @@ def main():
                     return
 
                 # 4. Calibration Engine
-                # DIRECT INSTANTIATION AS REQUESTED
+                import warnings
                 engine = Similarity2D()
-                engine.train(df_l_ready, df_g_proj)
+                
+                with warnings.catch_warnings(record=True) as w:
+                    warnings.simplefilter("always")
+                    engine.train(df_l_ready, df_g_proj)
+                    
+                    for warn in w:
+                        if "Extrapolación detectada" in str(warn.message):
+                            st.warning(str(warn.message), icon="⚠️")
 
                 # 5. Build Result Object (Mimicking API response structure for reuse)
-                residuals = [
-                    {"Point": str(row["Point"]), "dE": float(row["dE"]), "dN": float(row["dN"]), "dH": float(row["dH"])}
-                    for _, row in engine.residuals.iterrows()
-                ]
+                residuals = []
+                for _, row in engine.residuals.iterrows():
+                    res_dict = {
+                        "Point": str(row["Point"]), 
+                        "dE": float(row["dE"]), 
+                        "dN": float(row["dN"]), 
+                        "dH": float(row["dH"])
+                    }
+                    if "outlier_horizontal" in engine.residuals.columns:
+                        res_dict["outlier_horizontal"] = bool(row.get("outlier_horizontal", False))
+                    if "outlier_vertical" in engine.residuals.columns:
+                        res_dict["outlier_vertical"] = bool(row.get("outlier_vertical", False))
+                    residuals.append(res_dict)
                 
                 report_text = generate_markdown_report(engine, "not_used", method.lower())
                 
@@ -193,15 +222,58 @@ def display_results(data):
 
         st.markdown("---")
 
-    # 2. Residuals Table
+    # 2. Fit Quality Section
+    if "residuals" in data and "parameters" in data:
+        p = data["parameters"]
+        hp = p.get("horizontal", {})
+        
+        # Determine sigma0 (a posteriori). Fallback to standard error estimation if not exposed from motor
+        sigma0_sq = hp.get("sigma0_sq_h")
+        residuals_list = data["residuals"]
+        
+        if residuals_list:
+            if sigma0_sq is not None:
+                sigma0 = np.sqrt(sigma0_sq)
+            else:
+                # Approximation of empirical standard deviation (dof = 2n - 4)
+                df_res_tmp = pd.DataFrame(residuals_list)
+                dof = max(1, 2 * len(df_res_tmp) - 4)
+                v_sq = df_res_tmp["dE"]**2 + df_res_tmp["dN"]**2
+                sigma0 = np.sqrt(v_sq.sum() / dof)
+                
+            st.subheader("🎯 Calidad del Ajuste (Horizontal)")
+            # Color logic
+            if sigma0 < 0.005:
+                color, status = "green", "Excelente"
+            elif sigma0 < 0.02:
+                color, status = "orange", "Aceptable"
+            else:
+                color, status = "red", "Pobre"
+                
+            st.markdown(f"**Varianza a Posteriori ($\\sigma_0$):** :{color}[**{sigma0:.4f} m** ({status})]")
+            st.markdown("---")
+
+    # 3. Residuals Table
     if "residuals" in data:
         st.subheader("Cuadrícula de Residuales")
         residuals = data["residuals"]
         if isinstance(residuals, list) and len(residuals) > 0:
              df = pd.DataFrame(residuals)
-             # Rename columns for display
-             df.rename(columns={"dE": "dE (m)", "dN": "dN (m)", "dH": "dH (m)"}, inplace=True)
-             st.dataframe(df, use_container_width=True)
+             
+             # Highlight outliers style
+             def highlight_outliers(row):
+                 is_outlier = row.get("outlier_horizontal", False) or row.get("outlier_vertical", False)
+                 color = 'background-color: #ffcccc; color: #900' if is_outlier else ''
+                 return [color] * len(row)
+                 
+             display_df = df.copy()
+             if "outlier_horizontal" in display_df.columns:
+                 display_df["outlier_horizontal"] = display_df["outlier_horizontal"].apply(lambda x: "⚠️ Outlier" if x else "✅")
+             if "outlier_vertical" in display_df.columns:
+                 display_df["outlier_vertical"] = display_df["outlier_vertical"].apply(lambda x: "⚠️ Outlier" if x else "✅")
+                 
+             display_df.rename(columns={"dE": "dE (m)", "dN": "dN (m)", "dH": "dH (m)"}, inplace=True)
+             st.dataframe(display_df.style.apply(highlight_outliers, axis=1), use_container_width=True)
         else:
             st.info("No se devolvieron datos de residuales.")
         st.markdown("---")
