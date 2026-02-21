@@ -104,7 +104,12 @@ class Similarity2D(Calibration):
             
             if rank < 3:
                 import warnings
-                warnings.warn("Rango matricial insuficiente para ajuste vertical. Ajuste puede ser inestable.")
+                warnings.warn("Geometría deficiente: puntos posiblemente colineales en ajuste vertical. Resultado puede ser no confiable.")
+                
+            cond = np.linalg.cond(A_v)
+            if cond > 1e10:
+                import warnings
+                warnings.warn("Matriz mal condicionada")
 
             C = v_params[0]
             slope_n = v_params[1]
@@ -114,13 +119,15 @@ class Similarity2D(Calibration):
             C = np.mean(Z_error)
             slope_n = 0.0
             slope_e = 0.0
+            rank = 1
             
         self.vertical_params = {
             "vertical_shift": C,
             "slope_north": slope_n,
             "slope_east": slope_e,
             "centroid_north": N_c,
-            "centroid_east": E_c
+            "centroid_east": E_c,
+            "rank": rank
         }
         
         # Calculate residuals & Transformed Values
