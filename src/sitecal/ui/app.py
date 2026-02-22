@@ -277,19 +277,35 @@ def main():
                  with st.spinner("Transformando..."):
                       try:
                           if direction == "Global -> Local":
+                              # Bug 1: project Lat/Lon → metres using the same CRS as training
                               df_ready = trans_df.rename(columns={
-                                  t_id: "Point", t_x: "Easting_global", t_y: "Northing_global", t_z: "EllipsoidalHeight"
-                              })
-                          else:
-                              df_ready = trans_df.rename(columns={
-                                  t_id: "Point", t_x: "Easting_local", t_y: "Northing_local", t_z: "Elevation"
-                              })
-                              
-                          df_ready["Point"] = df_ready["Point"].astype(str)
-                          
-                          if direction == "Global -> Local":
+                                  t_id: "Point", t_x: "Longitude", t_y: "Latitude", t_z: "EllipsoidalHeight"
+                              })[["Point", "Longitude", "Latitude", "EllipsoidalHeight"]]
+                              df_ready["Point"] = df_ready["Point"].astype(str)
+
+                              if loaded_engine.proj_method:
+                                  from pyproj import CRS, Transformer as _T
+                                  _src, _dst = loaded_engine.get_crs_strings()
+                                  if _dst:
+                                      _tf = _T.from_crs(CRS(_src), CRS(_dst), always_xy=True)
+                                      df_ready["Easting_global"], df_ready["Northing_global"] = \
+                                          _tf.transform(df_ready["Longitude"].values,
+                                                        df_ready["Latitude"].values)
+                                  else:
+                                      df_ready = df_ready.rename(columns={
+                                          "Longitude": "Easting_global", "Latitude": "Northing_global"})
+                              else:
+                                  df_ready = df_ready.rename(columns={
+                                      "Longitude": "Easting_global", "Latitude": "Northing_global"})
+
                               res_df = loaded_engine.transform(df_ready)
                           else:
+                              # Bug 3: subset columns after rename to avoid phantom duplicates
+                              df_ready = trans_df.rename(columns={
+                                  t_id: "Point", t_x: "Easting_local", t_y: "Northing_local", t_z: "Elevation"
+                              })[["Point", "Easting_local", "Northing_local", "Elevation"]]
+                              df_ready["Point"] = df_ready["Point"].astype(str)
+
                               res_df = loaded_engine.transform_inverse(df_ready)
                               
                           st.success("Transformación exitosa.")

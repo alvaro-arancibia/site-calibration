@@ -262,8 +262,8 @@ class Similarity2D(Calibration):
             E_in = df["Easting_local"].values
             N_in = df["Northing_local"].values
         else:
-            E_in = df.get("Easting", np.zeros(len(df))).values
-            N_in = df.get("Northing", np.zeros(len(df))).values
+            E_in = df["Easting"].values if "Easting" in df.columns else np.zeros(len(df))
+            N_in = df["Northing"].values if "Northing" in df.columns else np.zeros(len(df))
             
         if "Elevation" in df.columns:
             h_local = df["Elevation"].values
