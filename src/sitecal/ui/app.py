@@ -97,11 +97,8 @@ def main():
     col_method, col_params = st.columns([1, 3])
     
     with col_method:
-        # Only supporting Similarity2D for now as per instructions (Default/LTM map to it internally anyway)
-        # But User asked for Similarity2D specifically.
-        # Keeping selection for UI consistency if they want to label it, but logic will force Similarity2D
-        method = st.selectbox("Seleccionar Método", ["Default", "LTM"])
-    
+        method = st.selectbox("Seleccionar Método", ["Default", "LTM", "EPSG"])
+
     params = {}
     if method == "LTM":
         with col_params:
@@ -110,6 +107,16 @@ def main():
             with c2: params["scale_factor"] = st.number_input("Factor de Escala", value=0.9996, format="%.6f")
             with c3: params["false_easting"] = st.number_input("Falso Este", value=500000.0)
             with c4: params["false_northing"] = st.number_input("Falso Norte", value=10000000.0)
+    elif method == "EPSG":
+        with col_params:
+            params["epsg_code"] = st.number_input(
+                "Código EPSG",
+                value=32719,
+                min_value=1024,
+                max_value=32767,
+                step=1,
+                help="Ej: 32719 = WGS 84 / UTM zone 19S, 32718 = UTM 18S, 5361 = PSAD56 / Peru West Zone",
+            )
 
     # Action
     st.markdown("---")
@@ -170,6 +177,8 @@ def main():
                     adj_params["is_south"] = is_south
                 elif engine.proj_method == "ltm":
                     adj_params["latitude_of_origin"] = 0.0
+                elif engine.proj_method == "epsg":
+                    adj_params["epsg_code"] = int(params.get("epsg_code", 32719))
                 engine.proj_params = adj_params
                 
                 with warnings.catch_warnings(record=True) as w:

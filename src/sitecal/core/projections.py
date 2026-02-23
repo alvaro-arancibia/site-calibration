@@ -118,6 +118,35 @@ class LTM(Projection):
             raise RuntimeError(f"LTM Projection failed: {e}")
 
 
+class EPSG(Projection):
+    def __init__(self, epsg_code: int):
+        self.epsg_code = int(epsg_code)
+
+    def project(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Projects geodetic coordinates (Lat, Lon) using any EPSG code via PyProj.
+        """
+        if df.empty:
+            raise ValueError("Cannot project empty DataFrame")
+
+        src_crs = CRS("EPSG:4326")
+        try:
+            dst_crs = CRS(f"EPSG:{self.epsg_code}")
+        except Exception as e:
+            raise ValueError(f"Invalid EPSG code {self.epsg_code}: {e}")
+
+        transformer = Transformer.from_crs(src_crs, dst_crs, always_xy=True)
+
+        try:
+            easting, northing = transformer.transform(df["Longitude"].values, df["Latitude"].values)
+            df_out = df.copy()
+            df_out["Easting"] = easting
+            df_out["Northing"] = northing
+            return df_out
+        except ProjError as e:
+            raise RuntimeError(f"EPSG:{self.epsg_code} Projection failed: {e}")
+
+
 class ProjectionFactory:
     @staticmethod
     def create(method: str, **kwargs) -> Projection:
@@ -133,6 +162,8 @@ class ProjectionFactory:
                 false_northing=kwargs.get("false_northing"),
                 scale_factor=kwargs.get("scale_factor"),
             )
+        elif method == "epsg":
+            return EPSG(epsg_code=kwargs.get("epsg_code"))
         else:
             raise ValueError(f"Unknown projection method: {method}")
         

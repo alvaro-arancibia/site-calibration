@@ -56,6 +56,8 @@ class Similarity2D(Calibration):
                     f"+x_0={p.get('false_easting', 500000.0)} "
                     f"+y_0={p.get('false_northing', 10000000.0)} "
                     f"+ellps=WGS84 +datum=WGS84 +units=m +no_defs")
+        elif m == "epsg":
+            proj = f"EPSG:{p.get('epsg_code', 32719)}"
         else:
             proj = None
         return "EPSG:4326", proj
