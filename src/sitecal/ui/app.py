@@ -250,10 +250,32 @@ def _step_preview():
         st.button("← Atrás", on_click=_go, args=(2,), use_container_width=True)
         return
 
-    # Show common points
     n = len(merged_df)
+
+    # Unmatched points
+    global_points = set(df_g_ready["Point"])
+    local_points = set(df_l_ready["Point"])
+    only_in_global = global_points - local_points
+    only_in_local = local_points - global_points
+    if only_in_global or only_in_local:
+        st.subheader("Puntos sin par")
+        if only_in_global:
+            st.warning(
+                f"**{len(only_in_global)} punto(s) en global sin par en local:** "
+                f"{', '.join(sorted(only_in_global))}"
+            )
+        if only_in_local:
+            st.warning(
+                f"**{len(only_in_local)} punto(s) en local sin par en global:** "
+                f"{', '.join(sorted(only_in_local))}"
+            )
+
+    # Common points table with fixed column order
     st.subheader(f"Puntos comunes detectados: {n}")
-    st.dataframe(merged_df, use_container_width=True)
+    display_cols = ["Point", "Easting_local", "Northing_local", "Elevation",
+                    "Easting_global", "Northing_global", "EllipsoidalHeight"]
+    display_cols = [c for c in display_cols if c in merged_df.columns]
+    st.dataframe(merged_df[display_cols], use_container_width=True)
 
     # Validations
     errors = []
@@ -267,7 +289,14 @@ def _step_preview():
             st.error(e)
         can_proceed = False
     else:
-        st.success(f"{n} puntos comunes válidos. Geometría aceptable.")
+        bbox_str = ""
+        if "Easting_local" in merged_df.columns and "Northing_local" in merged_df.columns:
+            e_min, e_max = merged_df["Easting_local"].min(), merged_df["Easting_local"].max()
+            n_min, n_max = merged_df["Northing_local"].min(), merged_df["Northing_local"].max()
+            bbox_str = (
+                f" | BBox local: {e_max - e_min:.2f} m (E) × {n_max - n_min:.2f} m (N)"
+            )
+        st.success(f"{n} puntos comunes válidos. Geometría aceptable.{bbox_str}")
         can_proceed = True
 
     # Navigation
