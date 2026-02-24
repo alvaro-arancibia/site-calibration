@@ -428,6 +428,8 @@ def _step_results():
         if trans_file:
             trans_df = pd.read_csv(trans_file)
             st.dataframe(trans_df.head(), use_container_width=True)
+            col_names = ", ".join(trans_df.columns.tolist())
+            st.caption(f"{len(trans_df)} puntos detectados | Columnas: {col_names}")
 
             direction = st.radio("Dirección de Transformación", ["Global -> Local", "Local -> Global"])
 
@@ -441,6 +443,11 @@ def _step_results():
                 t_x = st.selectbox("Easting (Local)", tc, index=1 if len(tc) > 1 else 0, key="t_l_e")
                 t_y = st.selectbox("Northing (Local)", tc, index=2 if len(tc) > 2 else 0, key="t_l_n")
                 t_z = st.selectbox("Elevation (Local)", tc, index=3 if len(tc) > 3 else 0, key="t_l_h")
+
+            dup_mask = trans_df[t_id].duplicated(keep=False)
+            if dup_mask.any():
+                dup_ids = trans_df[t_id][dup_mask].unique().tolist()
+                st.warning(f"IDs duplicados en columna '{t_id}': {', '.join(str(i) for i in dup_ids)}")
 
             if st.button("Aplicar Transformación", type="primary", key="btn_trans"):
                 with st.spinner("Transformando..."):
