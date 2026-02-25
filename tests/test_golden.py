@@ -547,3 +547,69 @@ class TestEPSGProjection:
         result = epsg_engine.transform_inverse(df_local)
         assert "Latitude" in result.columns
         assert "Longitude" in result.columns
+
+
+# ===========================================================================
+# 8. REAL DATA — Integration tests with field survey data
+# ===========================================================================
+
+class TestRealData:
+    """
+    Integration tests using real survey data (59 control points, Atacama region).
+    These tests verify that the engine produces plausible results on actual field
+    data, not just on the synthetic noise-free reference dataset.
+    """
+
+    @pytest.fixture(scope="class")
+    def real_dfs(self):
+        """Load and standardize both CSVs from tests/data/."""
+        data_dir = os.path.join(os.path.dirname(__file__), "data")
+
+        global_df = pd.read_csv(os.path.join(data_dir, "CoordenadasGlobales.csv"))
+        global_df = global_df.rename(columns={
+            "id": "Point",
+            "lat": "Latitude",
+            "lon": "Longitude",
+            "h": "EllipsoidalHeight",
+        })
+
+        local_df = pd.read_csv(os.path.join(data_dir, "CoordenadasLocales.csv"))
+        local_df = local_df.rename(columns={
+            "id": "Point",
+            "E": "Easting",
+            "N": "Northing",
+            "H": "Elevation",
+        }).drop(columns=["lon", "lat", "h"])
+
+        return global_df, local_df
+
+    @pytest.fixture(scope="class")
+    def real_engine(self, real_dfs):
+        """Project global coords with Default projection, then train Similarity2D."""
+        global_df, local_df = real_dfs
+        projection = ProjectionFactory.create("default")
+        df_g_proj = projection.project(global_df)
+        engine = Similarity2D()
+        engine.train(local_df, df_g_proj)
+        return engine
+
+    def test_real_data_has_expected_point_count(self, real_engine):
+        assert len(real_engine.residuals) == 59
+
+    def test_real_horizontal_rms_within_tolerance(self, real_engine):
+        res = real_engine.residuals
+        rms = np.sqrt((res["dE"] ** 2 + res["dN"] ** 2).mean())
+        assert rms < 0.10, f"Horizontal RMS {rms:.4f} m exceeds 0.10 m tolerance"
+
+    def test_real_vertical_rms_within_tolerance(self, real_engine):
+        res = real_engine.residuals
+        rms = np.sqrt((res["dH"] ** 2).mean())
+        assert rms < 0.20, f"Vertical RMS {rms:.4f} m exceeds 0.20 m tolerance"
+
+    def test_real_no_crashes(self, real_dfs, real_engine):
+        """train() and transform() complete without raising any exception."""
+        global_df, _ = real_dfs
+        projection = ProjectionFactory.create("default")
+        df_g_proj = projection.project(global_df)
+        result = real_engine.transform(df_g_proj)
+        assert len(result) == len(global_df)
