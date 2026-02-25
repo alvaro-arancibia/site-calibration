@@ -48,6 +48,8 @@ def _init_state():
         "df_l_ready": None,
         "cal_engine": None,
         "cal_result": None,
+        "t2_engine": None,
+        "t2_result_df": None,
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -339,6 +341,87 @@ def _step_preview():
         st.button("Calcular Calibración →", disabled=not can_proceed, on_click=_go, args=(4,), type="primary", use_container_width=True)
 
 
+def _apply_transform(loaded_engine, key_prefix: str = "") -> None:
+    """Render the 'Transformar Puntos' UI for a given calibration engine."""
+    if loaded_engine is None:
+        return
+
+    st.subheader("Puntos a Transformar")
+    trans_file = st.file_uploader(
+        "Subir CSV de Puntos", type=["csv"], key=f"{key_prefix}trans_points"
+    )
+
+    if trans_file:
+        trans_df = pd.read_csv(trans_file)
+        st.dataframe(trans_df.head(), use_container_width=True)
+        col_names = ", ".join(trans_df.columns.tolist())
+        st.caption(f"{len(trans_df)} puntos detectados | Columnas: {col_names}")
+
+        direction = st.radio("Dirección de Transformación", ["Global -> Local", "Local -> Global"])
+
+        tc = trans_df.columns.tolist()
+        t_id = st.selectbox("Point (ID)", tc, index=0, key=f"{key_prefix}t_id")
+        if direction == "Global -> Local":
+            t_x = st.selectbox("Easting Global / Longitude", tc, index=1 if len(tc) > 1 else 0, key=f"{key_prefix}t_g_e")
+            t_y = st.selectbox("Northing Global / Latitude", tc, index=2 if len(tc) > 2 else 0, key=f"{key_prefix}t_g_n")
+            t_z = st.selectbox("Ellipsoidal Height / h", tc, index=3 if len(tc) > 3 else 0, key=f"{key_prefix}t_g_h")
+        else:
+            t_x = st.selectbox("Easting (Local)", tc, index=1 if len(tc) > 1 else 0, key=f"{key_prefix}t_l_e")
+            t_y = st.selectbox("Northing (Local)", tc, index=2 if len(tc) > 2 else 0, key=f"{key_prefix}t_l_n")
+            t_z = st.selectbox("Elevation (Local)", tc, index=3 if len(tc) > 3 else 0, key=f"{key_prefix}t_l_h")
+
+        dup_mask = trans_df[t_id].duplicated(keep=False)
+        if dup_mask.any():
+            dup_ids = trans_df[t_id][dup_mask].unique().tolist()
+            st.warning(f"IDs duplicados en columna '{t_id}': {', '.join(str(i) for i in dup_ids)}")
+
+        if st.button("Aplicar Transformación", type="primary", key=f"{key_prefix}btn_trans"):
+            with st.spinner("Transformando..."):
+                try:
+                    if direction == "Global -> Local":
+                        df_ready = trans_df.rename(columns={
+                            t_id: "Point", t_x: "Longitude", t_y: "Latitude", t_z: "EllipsoidalHeight"
+                        })[["Point", "Longitude", "Latitude", "EllipsoidalHeight"]]
+                        df_ready["Point"] = df_ready["Point"].astype(str)
+
+                        if loaded_engine.proj_method:
+                            from pyproj import CRS, Transformer as _T
+                            _src, _dst = loaded_engine.get_crs_strings()
+                            if _dst:
+                                _tf = _T.from_crs(CRS(_src), CRS(_dst), always_xy=True)
+                                df_ready["Easting_global"], df_ready["Northing_global"] = \
+                                    _tf.transform(df_ready["Longitude"].values,
+                                                  df_ready["Latitude"].values)
+                            else:
+                                df_ready = df_ready.rename(columns={
+                                    "Longitude": "Easting_global", "Latitude": "Northing_global"})
+                        else:
+                            df_ready = df_ready.rename(columns={
+                                "Longitude": "Easting_global", "Latitude": "Northing_global"})
+
+                        res_df = loaded_engine.transform(df_ready)
+                    else:
+                        df_ready = trans_df.rename(columns={
+                            t_id: "Point", t_x: "Easting_local", t_y: "Northing_local", t_z: "Elevation"
+                        })[["Point", "Easting_local", "Northing_local", "Elevation"]]
+                        df_ready["Point"] = df_ready["Point"].astype(str)
+
+                        res_df = loaded_engine.transform_inverse(df_ready)
+
+                    st.success("Transformación exitosa.")
+                    st.dataframe(res_df.head(), use_container_width=True)
+
+                    csv_data = res_df.to_csv(index=False).encode('utf-8')
+                    st.download_button(
+                        label="📥 Descargar Resultados CSV",
+                        data=csv_data,
+                        file_name="puntos_transformados.csv",
+                        mime="text/csv",
+                    )
+                except Exception as e:
+                    st.error(f"Error transformando puntos: {str(e)}")
+
+
 # ── Step 4: Calibration + Results + Transform ────────────────
 def _step_results():
     st.header("Paso 4 — Resultados de Calibración")
@@ -452,79 +535,7 @@ def _step_results():
         else:
             st.warning("⚠️ Debes calcular una calibración arriba o subir un archivo `.sitecal`.")
 
-    if loaded_engine is not None:
-        st.subheader("Puntos a Transformar")
-        trans_file = st.file_uploader("Subir CSV de Puntos", type=["csv"], key="trans_points")
-
-        if trans_file:
-            trans_df = pd.read_csv(trans_file)
-            st.dataframe(trans_df.head(), use_container_width=True)
-            col_names = ", ".join(trans_df.columns.tolist())
-            st.caption(f"{len(trans_df)} puntos detectados | Columnas: {col_names}")
-
-            direction = st.radio("Dirección de Transformación", ["Global -> Local", "Local -> Global"])
-
-            tc = trans_df.columns.tolist()
-            t_id = st.selectbox("Point (ID)", tc, index=0, key="t_id")
-            if direction == "Global -> Local":
-                t_x = st.selectbox("Easting Global / Longitude", tc, index=1 if len(tc) > 1 else 0, key="t_g_e")
-                t_y = st.selectbox("Northing Global / Latitude", tc, index=2 if len(tc) > 2 else 0, key="t_g_n")
-                t_z = st.selectbox("Ellipsoidal Height / h", tc, index=3 if len(tc) > 3 else 0, key="t_g_h")
-            else:
-                t_x = st.selectbox("Easting (Local)", tc, index=1 if len(tc) > 1 else 0, key="t_l_e")
-                t_y = st.selectbox("Northing (Local)", tc, index=2 if len(tc) > 2 else 0, key="t_l_n")
-                t_z = st.selectbox("Elevation (Local)", tc, index=3 if len(tc) > 3 else 0, key="t_l_h")
-
-            dup_mask = trans_df[t_id].duplicated(keep=False)
-            if dup_mask.any():
-                dup_ids = trans_df[t_id][dup_mask].unique().tolist()
-                st.warning(f"IDs duplicados en columna '{t_id}': {', '.join(str(i) for i in dup_ids)}")
-
-            if st.button("Aplicar Transformación", type="primary", key="btn_trans"):
-                with st.spinner("Transformando..."):
-                    try:
-                        if direction == "Global -> Local":
-                            df_ready = trans_df.rename(columns={
-                                t_id: "Point", t_x: "Longitude", t_y: "Latitude", t_z: "EllipsoidalHeight"
-                            })[["Point", "Longitude", "Latitude", "EllipsoidalHeight"]]
-                            df_ready["Point"] = df_ready["Point"].astype(str)
-
-                            if loaded_engine.proj_method:
-                                from pyproj import CRS, Transformer as _T
-                                _src, _dst = loaded_engine.get_crs_strings()
-                                if _dst:
-                                    _tf = _T.from_crs(CRS(_src), CRS(_dst), always_xy=True)
-                                    df_ready["Easting_global"], df_ready["Northing_global"] = \
-                                        _tf.transform(df_ready["Longitude"].values,
-                                                      df_ready["Latitude"].values)
-                                else:
-                                    df_ready = df_ready.rename(columns={
-                                        "Longitude": "Easting_global", "Latitude": "Northing_global"})
-                            else:
-                                df_ready = df_ready.rename(columns={
-                                    "Longitude": "Easting_global", "Latitude": "Northing_global"})
-
-                            res_df = loaded_engine.transform(df_ready)
-                        else:
-                            df_ready = trans_df.rename(columns={
-                                t_id: "Point", t_x: "Easting_local", t_y: "Northing_local", t_z: "Elevation"
-                            })[["Point", "Easting_local", "Northing_local", "Elevation"]]
-                            df_ready["Point"] = df_ready["Point"].astype(str)
-
-                            res_df = loaded_engine.transform_inverse(df_ready)
-
-                        st.success("Transformación exitosa.")
-                        st.dataframe(res_df.head(), use_container_width=True)
-
-                        csv_data = res_df.to_csv(index=False).encode('utf-8')
-                        st.download_button(
-                            label="📥 Descargar Resultados CSV",
-                            data=csv_data,
-                            file_name="puntos_transformados.csv",
-                            mime="text/csv",
-                        )
-                    except Exception as e:
-                        st.error(f"Error transformando puntos: {str(e)}")
+    _apply_transform(loaded_engine, key_prefix="")
 
     # Navigation
     st.divider()
