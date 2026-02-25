@@ -58,10 +58,17 @@ def _go(step: int):
     st.session_state["step"] = step
 
 
+def _reset_calibration():
+    for k in ["cal_result", "cal_engine", "merged_df", "df_g_ready", "df_g_proj", "df_l_ready"]:
+        st.session_state[k] = None
+    st.session_state["step"] = 1
+
+
 # ── Progress bar ──────────────────────────────────────────────
 def _render_progress():
     step = st.session_state["step"]
-    st.progress(step / TOTAL_STEPS, text=f"Paso {step} de {TOTAL_STEPS} — {STEP_LABELS[step - 1]}")
+    st.progress(step / TOTAL_STEPS)
+    st.caption(f"Paso {step} de {TOTAL_STEPS} — {STEP_LABELS[step - 1]}")
 
 
 # ── Step 1: File Upload ──────────────────────────────────────
@@ -83,7 +90,7 @@ def _step_upload():
     col1, col2 = st.columns(2)
 
     with col1:
-        st.subheader("Coordenadas Globales (CSV)")
+        st.info("🌐 Coordenadas Globales (GNSS / WGS84)")
         global_file = st.file_uploader("Subir CSV Global", type=["csv"], key="global")
         if global_file:
             has_header_g = st.checkbox("Tiene encabezados", value=True, key="header_g")
@@ -94,7 +101,7 @@ def _step_upload():
             st.session_state["global_df"] = None
 
     with col2:
-        st.subheader("Coordenadas Locales (CSV)")
+        st.info("📐 Coordenadas Locales (Planas / Metros)")
         local_file = st.file_uploader("Subir CSV Local", type=["csv"], key="local")
         if local_file:
             has_header_l = st.checkbox("Tiene encabezados", value=True, key="header_l")
@@ -422,7 +429,7 @@ def _step_results():
     )
 
     # ── Transform section ─────────────────────────────────────
-    st.markdown("---")
+    st.divider()
     st.header("Transformar Puntos")
     st.markdown("Aplica una calibración existente a un nuevo conjunto de puntos.")
 
@@ -520,15 +527,8 @@ def _step_results():
                         st.error(f"Error transformando puntos: {str(e)}")
 
     # Navigation
-    st.markdown("---")
-    c_back, c_new = st.columns(2)
-    with c_back:
-        st.button("← Atrás (Preview)", on_click=_go, args=(3,), use_container_width=True)
-    with c_new:
-        if st.button("Nueva Calibración", use_container_width=True):
-            for k in ["cal_result", "cal_engine", "merged_df", "df_g_ready", "df_g_proj", "df_l_ready"]:
-                st.session_state[k] = None
-            _go(1)
+    st.divider()
+    st.button("← Atrás (Preview)", on_click=_go, args=(3,), use_container_width=True)
 
 
 # ── Display results (unchanged logic) ────────────────────────
@@ -646,12 +646,36 @@ def display_results(data):
         st.markdown("---")
 
     # 4. Full Report
-    if "report" in data:
+    report_md = data.get("report") or data.get("markdown_report")
+    if report_md:
         st.subheader("Reporte Completo de Calibración")
-        st.markdown(data["report"])
-    elif "markdown_report" in data:
-        st.subheader("Reporte Completo de Calibración")
-        st.markdown(data["markdown_report"])
+        st.markdown(report_md)
+
+        import markdown as _md
+        html_body = _md.markdown(report_md, extensions=["tables"])
+        html_content = (
+            "<!DOCTYPE html>\n<html>\n<head>\n"
+            '  <meta charset="UTF-8">\n'
+            "  <title>Site Calibration Report</title>\n"
+            "  <style>\n"
+            "    body { font-family: sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; }\n"
+            "    h1, h2, h3 { color: #2c3e50; }\n"
+            "    table { border-collapse: collapse; width: 100%; }\n"
+            "    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }\n"
+            "    th { background-color: #f5f5f5; }\n"
+            "    pre { background: #f8f8f8; padding: 1rem; border-radius: 4px; overflow-x: auto; }\n"
+            "  </style>\n"
+            "</head>\n<body>\n"
+            "  <h1>Site Calibration Report</h1>\n"
+            f"  {html_body}\n"
+            "</body>\n</html>"
+        )
+        st.download_button(
+            label="📄 Descargar Reporte HTML",
+            data=html_content.encode("utf-8"),
+            file_name="reporte_calibracion.html",
+            mime="text/html",
+        )
 
 
 # ── Main ──────────────────────────────────────────────────────
@@ -659,12 +683,27 @@ def main():
     st.set_page_config(page_title="Site Calibration (Offline)", page_icon="🛰️", layout="wide")
     _init_state()
 
-    st.title("Site Calibration Tool (Monolith)")
-    st.markdown("Cálculo local y seguro. No requiere conexión a internet.")
+    # ── Sidebar ───────────────────────────────────────────────
+    st.sidebar.title("🛰️ Site Calibration")
+    st.sidebar.caption("Calibración geodésica local y offline")
+    st.sidebar.divider()
+    step = st.session_state["step"]
+    st.sidebar.markdown("**Paso actual:**")
+    st.sidebar.info(STEP_LABELS[step - 1])
+    st.sidebar.divider()
+    st.sidebar.button(
+        "🔄 Nueva Calibración",
+        on_click=_reset_calibration,
+        use_container_width=True,
+        help="Reinicia el flujo y borra los resultados actuales",
+    )
+
+    # ── Main area ─────────────────────────────────────────────
+    st.title("🛰️ Site Calibration Tool")
+    st.caption("v1.0 · Calibración de sitio geodésica · Procesamiento local, sin conexión a internet")
 
     _render_progress()
 
-    step = st.session_state["step"]
     if step == 1:
         _step_upload()
     elif step == 2:
