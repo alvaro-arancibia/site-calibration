@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import io
 import numpy as np
+import altair as alt
 
 # Core Imports for Offline Processing
 from sitecal.core.calibration_engine import Similarity2D
@@ -299,6 +300,29 @@ def _step_preview():
         st.success(f"{n} puntos comunes válidos. Geometría aceptable.{bbox_str}")
         can_proceed = True
 
+    # ── Scatter dual: Global proyectado vs Local ───────────────
+    if n >= 3 and "Easting_global" in merged_df.columns and "Easting_local" in merged_df.columns:
+        df_g_plot = merged_df[["Point", "Easting_global", "Northing_global"]].copy()
+        df_l_plot = merged_df[["Point", "Easting_local", "Northing_local"]].copy()
+
+        pts_g = alt.Chart(df_g_plot).mark_circle(size=80, color="#1f77b4").encode(
+            x=alt.X("Easting_global:Q", scale=alt.Scale(zero=False), title="Easting (m)"),
+            y=alt.Y("Northing_global:Q", scale=alt.Scale(zero=False), title="Northing (m)"),
+            tooltip=["Point:N", "Easting_global:Q", "Northing_global:Q"],
+        )
+        pts_l = alt.Chart(df_l_plot).mark_circle(size=80, color="#d62728").encode(
+            x=alt.X("Easting_local:Q", scale=alt.Scale(zero=False), title="Easting (m)"),
+            y=alt.Y("Northing_local:Q", scale=alt.Scale(zero=False), title="Northing (m)"),
+            tooltip=["Point:N", "Easting_local:Q", "Northing_local:Q"],
+        )
+        st.altair_chart(
+            alt.layer(pts_g, pts_l).properties(
+                title="Vista previa: Global proyectado vs Local",
+                height=350,
+            ),
+            use_container_width=True,
+        )
+
     # Navigation
     st.markdown("---")
     c_back, c_next = st.columns(2)
@@ -581,6 +605,42 @@ def display_results(data):
 
             display_df.rename(columns={"dE": "dE (m)", "dN": "dN (m)", "dH": "dH (m)"}, inplace=True)
             st.dataframe(display_df.style.apply(highlight_outliers, axis=1), use_container_width=True)
+
+            # ── Scatter de residuales horizontales ─────────────
+            df_res = df[["Point", "dE", "dN"]].copy()
+            if "outlier_horizontal" in df.columns:
+                df_res["_tipo"] = df["outlier_horizontal"].apply(
+                    lambda x: "Outlier" if x else "Normal"
+                )
+            else:
+                df_res["_tipo"] = "Normal"
+
+            zero_h = alt.Chart(pd.DataFrame({"y": [0.0]})).mark_rule(
+                color="gray", strokeDash=[4, 4], opacity=0.7
+            ).encode(y="y:Q")
+            zero_v = alt.Chart(pd.DataFrame({"x": [0.0]})).mark_rule(
+                color="gray", strokeDash=[4, 4], opacity=0.7
+            ).encode(x="x:Q")
+            pts_res = alt.Chart(df_res).mark_circle(size=80).encode(
+                x=alt.X("dE:Q", title="dE (m)"),
+                y=alt.Y("dN:Q", title="dN (m)"),
+                color=alt.Color(
+                    "_tipo:N",
+                    scale=alt.Scale(domain=["Normal", "Outlier"], range=["#2ca02c", "#d62728"]),
+                    legend=alt.Legend(title="Tipo"),
+                ),
+                tooltip=["Point:N", "dE:Q", "dN:Q"],
+            )
+            origin = alt.Chart(pd.DataFrame({"x": [0.0], "y": [0.0]})).mark_point(
+                shape="diamond", size=150, color="black", filled=True, opacity=0.6
+            ).encode(x="x:Q", y="y:Q")
+            st.altair_chart(
+                alt.layer(zero_h, zero_v, pts_res, origin).properties(
+                    title="Residuales horizontales (dE vs dN)",
+                    height=350,
+                ),
+                use_container_width=True,
+            )
         else:
             st.info("No se devolvieron datos de residuales.")
         st.markdown("---")
