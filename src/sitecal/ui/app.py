@@ -689,6 +689,62 @@ def display_results(data):
         )
 
 
+# ── Tab 2: Transform with existing model ─────────────────────
+def _tab_transform() -> None:
+    """Tab 2: standalone flow for applying an existing calibration model to new points."""
+
+    st.header("Transformar Puntos")
+
+    # ── 1. LOAD MODEL ──────────────────────────────────────────
+    st.subheader("Modelo de Calibración")
+
+    cal_file = st.file_uploader(
+        "Cargar modelo de calibración (.sitecal / .json)",
+        type=["sitecal", "json"],
+        key="t2_model_file",
+    )
+
+    if cal_file:
+        try:
+            engine = Similarity2D.load(cal_file.read().decode("utf-8"))
+            st.session_state["t2_engine"] = engine
+        except Exception as e:
+            st.error(f"Error al cargar el archivo de calibración: {e}")
+            st.session_state["t2_engine"] = None
+            return
+    elif (
+        st.session_state.get("t2_engine") is None
+        and st.session_state.get("cal_engine") is not None
+    ):
+        st.info(
+            "ℹ️ Hay una calibración disponible de la Pestaña 1. "
+            "Puedes subir un archivo arriba para reemplazarla, o continuar con ese modelo."
+        )
+        st.session_state["t2_engine"] = st.session_state["cal_engine"]
+
+    loaded_engine = st.session_state.get("t2_engine")
+
+    if loaded_engine is None:
+        st.warning("⚠️ Sube un archivo de calibración (.sitecal / .json) para continuar.")
+        return
+
+    # Show model summary
+    param_count = (
+        len(loaded_engine.horizontal_params) if loaded_engine.horizontal_params else 0
+    ) + (
+        len(loaded_engine.vertical_params) if loaded_engine.vertical_params else 0
+    )
+    st.success(
+        f"✅ Modelo listo. "
+        f"Proyección: **{loaded_engine.proj_method or 'N/A'}** | "
+        f"Parámetros: {param_count}"
+    )
+
+    # ── 2. UPLOAD POINTS + 3. TRANSFORM ────────────────────────
+    st.divider()
+    _apply_transform(loaded_engine, key_prefix="t2_")
+
+
 # ── Main ──────────────────────────────────────────────────────
 def main():
     st.set_page_config(page_title="Site Calibration (Offline)", page_icon="🛰️", layout="wide")
