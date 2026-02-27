@@ -511,31 +511,8 @@ def _step_results():
         use_container_width=True,
     )
 
-    # ── Transform section ─────────────────────────────────────
     st.divider()
-    st.header("Transformar Puntos")
-    st.markdown("Aplica una calibración existente a un nuevo conjunto de puntos.")
-
-    load_col, _ = st.columns(2)
-    with load_col:
-        st.subheader("Modelo de Calibración")
-        cal_file = st.file_uploader("Cargar Calibración (.sitecal)", type=["sitecal", "json"])
-
-        loaded_engine = None
-        if cal_file:
-            try:
-                content = cal_file.read().decode('utf-8')
-                loaded_engine = Similarity2D.load(content)
-                st.success("✅ Modelo cargado desde archivo.")
-            except Exception as e:
-                st.error(f"Error cargando archivo: {str(e)}")
-        elif st.session_state.get("cal_engine") is not None:
-            loaded_engine = st.session_state["cal_engine"]
-            st.info("ℹ️ Usando el modelo de calibración calculado en la sesión actual.")
-        else:
-            st.warning("⚠️ Debes calcular una calibración arriba o subir un archivo `.sitecal`.")
-
-    _apply_transform(loaded_engine, key_prefix="")
+    st.info("Para transformar puntos con esta calibración, ve a la pestaña **Transformar**.")
 
     # Navigation
     st.divider()
