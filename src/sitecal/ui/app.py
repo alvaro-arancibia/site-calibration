@@ -727,35 +727,24 @@ def main():
     st.set_page_config(page_title="Site Calibration (Offline)", page_icon="🛰️", layout="wide")
     _init_state()
 
-    # ── Sidebar ───────────────────────────────────────────────
+    # Sidebar — branding only
     st.sidebar.title("🛰️ Site Calibration")
-    st.sidebar.caption("Calibración geodésica local y offline")
-    st.sidebar.divider()
-    step = st.session_state["step"]
-    st.sidebar.markdown("**Paso actual:**")
-    st.sidebar.info(STEP_LABELS[step - 1])
-    st.sidebar.divider()
-    st.sidebar.button(
-        "🔄 Nueva Calibración",
-        on_click=_reset_calibration,
-        use_container_width=True,
-        help="Reinicia el flujo y borra los resultados actuales",
-    )
+    st.sidebar.caption("Herramienta de calibración geodésica offline")
+    st.sidebar.button("🔄 Nueva Calibración", on_click=_reset_calibration, use_container_width=True)
 
-    # ── Main area ─────────────────────────────────────────────
-    st.title("🛰️ Site Calibration Tool")
-    st.caption("v1.0 · Calibración de sitio geodésica · Procesamiento local, sin conexión a internet")
+    # Two tabs
+    tab_cal, tab_trans = st.tabs(["📐 Calibrar", "🔁 Transformar"])
 
-    _render_progress()
+    with tab_cal:
+        _render_progress()
+        step = st.session_state["step"]
+        if step == 1: _step_upload()
+        elif step == 2: _step_mapping()
+        elif step == 3: _step_preview()
+        elif step == 4: _step_results()
 
-    if step == 1:
-        _step_upload()
-    elif step == 2:
-        _step_mapping()
-    elif step == 3:
-        _step_preview()
-    elif step == 4:
-        _step_results()
+    with tab_trans:
+        _tab_transform()
 
 
 if __name__ == "__main__":
