@@ -2,7 +2,7 @@ import json
 import re
 
 APP_PY = "src/sitecal/ui/app.py"
-INDEX_HTML = "index.html"
+INDEX_HTML = "docs/index.html"
 
 with open(APP_PY, "r", encoding="utf-8") as f:
     app_source = f.read()
